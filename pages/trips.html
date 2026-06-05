@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chuyến xe — Pam Travel</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<nav>
+  <a class="nav-logo" href="../index.html">PAM TRAVEL</a>
+  <div class="nav-links">
+    <a href="../index.html">Dashboard</a>
+    <a href="trips.html" class="active">Chuyến xe</a>
+    <a href="bookings.html">Đặt vé</a>
+    <a href="users.html">Người dùng</a>
+    <a href="routes.html">Tuyến đường</a>
+    <a href="payments.html">Thanh toán</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">CHUYẾN XE</h1>
+    <p class="page-sub">Danh sách toàn bộ chuyến xe trong hệ thống</p>
+  </div>
+  <div class="filter-bar">
+    <select id="filter-status" onchange="loadTrips()">
+      <option value="">Tất cả trạng thái</option>
+      <option value="OPEN">OPEN</option>
+      <option value="CLOSED">CLOSED</option>
+      <option value="CANCELLED">CANCELLED</option>
+      <option value="COMPLETED">COMPLETED</option>
+    </select>
+  </div>
+</div>
+
+<div class="content">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Tuyến đường</th>
+          <th>Nhà xe</th>
+          <th>Xe</th>
+          <th>Khởi hành</th>
+          <th>Đến nơi</th>
+          <th>Giá vé</th>
+          <th>Trạng thái</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-trips">
+        <tr><td colspan="8" class="loading">Đang tải dữ liệu...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<footer>© 2026 <span>Pam Travel</span></footer>
+
+<script src="../js/db.js"></script>
+<script src="../js/common.js"></script>
+<script>
+async function loadTrips() {
+  const status = document.getElementById('filter-status').value;
+  let sql = `
+    SELECT t.id,
+           p1.name AS origin, p2.name AS dest,
+           o.name AS operator,
+           v.license_plate,
+           to_char(t.departure_time AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YYYY HH24:MI') AS dep,
+           to_char(t.arrival_time   AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YYYY HH24:MI') AS arr,
+           COALESCE(t.price_override, r.base_price) AS price,
+           t.status
+    FROM trips t
+    JOIN routes r    ON t.route_id    = r.id
+    JOIN provinces p1 ON r.origin_province_id      = p1.id
+    JOIN provinces p2 ON r.destination_province_id = p2.id
+    JOIN operators o  ON t.operator_id = o.id
+    JOIN vehicles  v  ON t.vehicle_id  = v.id
+  `;
+  if (status) sql += ` WHERE t.status = '${status}'`;
+  sql += ' ORDER BY t.departure_time DESC';
+
+  try {
+    const rows = await DB.query(sql);
+    const tbody = document.getElementById('tbl-trips');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="loading">Không có dữ liệu</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr class="fade-up">
+        <td class="mono">#${r.id}</td>
+        <td><strong>${r.origin}</strong> → ${r.dest}</td>
+        <td>${r.operator}</td>
+        <td class="mono">${r.license_plate}</td>
+        <td class="mono">${r.dep}</td>
+        <td class="mono">${r.arr}</td>
+        <td class="mono">${parseInt(r.price).toLocaleString('vi-VN')}đ</td>
+        <td><span class="badge badge-${r.status.toLowerCase()}">${r.status}</span></td>
+      </tr>`).join('');
+  } catch(e) {
+    showError('tbl-trips', 8, e.message);
+  }
+}
+loadTrips();
+</script>
+</body>
+</html>

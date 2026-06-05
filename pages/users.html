@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Người dùng — Pam Travel</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<nav>
+  <a class="nav-logo" href="../index.html">PAM TRAVEL</a>
+  <div class="nav-links">
+    <a href="../index.html">Dashboard</a>
+    <a href="trips.html">Chuyến xe</a>
+    <a href="bookings.html">Đặt vé</a>
+    <a href="users.html" class="active">Người dùng</a>
+    <a href="routes.html">Tuyến đường</a>
+    <a href="payments.html">Thanh toán</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">NGƯỜI DÙNG</h1>
+    <p class="page-sub">Danh sách tài khoản trong hệ thống</p>
+  </div>
+  <div class="filter-bar">
+    <select id="filter-role" onchange="loadUsers()">
+      <option value="">Tất cả vai trò</option>
+      <option value="CUSTOMER">CUSTOMER</option>
+      <option value="DRIVER">DRIVER</option>
+      <option value="ADMIN">ADMIN</option>
+    </select>
+  </div>
+</div>
+
+<div class="content">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Họ tên</th>
+          <th>Số điện thoại</th>
+          <th>Email</th>
+          <th>Vai trò</th>
+          <th>Trạng thái</th>
+          <th>Ngày tạo</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-users">
+        <tr><td colspan="7" class="loading">Đang tải dữ liệu...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<footer>© 2026 <span>Pam Travel</span></footer>
+
+<script src="../js/db.js"></script>
+<script src="../js/common.js"></script>
+<script>
+async function loadUsers() {
+  const role = document.getElementById('filter-role').value;
+  let sql = `
+    SELECT id, full_name, phone_number, email, role, is_active,
+           to_char(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YYYY') AS created
+    FROM users
+  `;
+  if (role) sql += ` WHERE role = '${role}'`;
+  sql += ' ORDER BY created_at DESC';
+
+  try {
+    const rows = await DB.query(sql);
+    const tbody = document.getElementById('tbl-users');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="loading">Không có dữ liệu</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr class="fade-up">
+        <td class="mono">#${r.id}</td>
+        <td><strong>${r.full_name || '—'}</strong></td>
+        <td class="mono">${r.phone_number || '—'}</td>
+        <td style="font-size:0.82rem">${r.email || '—'}</td>
+        <td><span class="badge badge-role-${r.role.toLowerCase()}">${r.role}</span></td>
+        <td>
+          <span class="badge ${r.is_active ? 'badge-open' : 'badge-cancelled'}">
+            ${r.is_active ? 'Active' : 'Inactive'}
+          </span>
+        </td>
+        <td class="mono">${r.created}</td>
+      </tr>`).join('');
+  } catch(e) {
+    showError('tbl-users', 7, e.message);
+  }
+}
+loadUsers();
+</script>
+</body>
+</html>

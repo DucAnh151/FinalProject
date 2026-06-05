@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thanh toán — Pam Travel</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<nav>
+  <a class="nav-logo" href="../index.html">PAM TRAVEL</a>
+  <div class="nav-links">
+    <a href="../index.html">Dashboard</a>
+    <a href="trips.html">Chuyến xe</a>
+    <a href="bookings.html">Đặt vé</a>
+    <a href="users.html">Người dùng</a>
+    <a href="routes.html">Tuyến đường</a>
+    <a href="payments.html" class="active">Thanh toán</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">THANH TOÁN</h1>
+    <p class="page-sub">Giao dịch và hoàn tiền</p>
+  </div>
+  <div class="filter-bar">
+    <select id="filter-status" onchange="loadPayments()">
+      <option value="">Tất cả</option>
+      <option value="SUCCESS">SUCCESS</option>
+      <option value="PENDING">PENDING</option>
+      <option value="FAILED">FAILED</option>
+      <option value="REFUNDED">REFUNDED</option>
+    </select>
+    <select id="filter-gateway" onchange="loadPayments()">
+      <option value="">Tất cả cổng</option>
+      <option value="VNPAY">VNPAY</option>
+      <option value="MOMO">MOMO</option>
+      <option value="CARD">CARD</option>
+    </select>
+  </div>
+</div>
+
+<div class="content">
+  <!-- Summary cards -->
+  <div class="stats-row" style="margin:0 0 1.5rem">
+    <div class="stat">
+      <span class="stat-num" id="sum-total">—</span>
+      <span class="stat-label">Tổng giao dịch</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num" id="sum-success" style="color:var(--green)">—</span>
+      <span class="stat-label">Thành công</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num" id="sum-revenue">—</span>
+      <span class="stat-label">Doanh thu (đ)</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num" id="sum-refund" style="color:var(--red)">—</span>
+      <span class="stat-label">Hoàn tiền (đ)</span>
+    </div>
+  </div>
+
+  <!-- Payments table -->
+  <div class="table-wrap" style="margin-bottom:2rem">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Booking</th><th>Cổng TT</th>
+          <th>Mã giao dịch</th><th>Số tiền</th><th>Thời gian</th><th>Trạng thái</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-payments">
+        <tr><td colspan="7" class="loading">Đang tải...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Refunds table -->
+  <div class="section-header" style="margin-bottom:1rem">
+    <span class="section-title">HOÀN TIỀN</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Booking</th><th>Số tiền hoàn</th>
+          <th>Tỷ lệ</th><th>Yêu cầu lúc</th><th>Xử lý lúc</th><th>Trạng thái</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-refunds">
+        <tr><td colspan="7" class="loading">Đang tải...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<footer>© 2026 <span>Pam Travel</span></footer>
+
+<script src="../js/db.js"></script>
+<script src="../js/common.js"></script>
+<script>
+async function loadPayments() {
+  const status  = document.getElementById('filter-status').value;
+  const gateway = document.getElementById('filter-gateway').value;
+
+  // Summary
+  try {
+    const [summary, refundSum] = await Promise.all([
+      DB.query(`SELECT COUNT(*) as total,
+                       SUM(CASE WHEN status='SUCCESS' THEN 1 ELSE 0 END) as success,
+                       SUM(CASE WHEN status='SUCCESS' THEN amount ELSE 0 END) as revenue
+                FROM payments`),
+      DB.query(`SELECT COALESCE(SUM(amount),0) as total FROM refunds WHERE status='COMPLETED'`)
+    ]);
+    document.getElementById('sum-total').textContent   = summary[0].total;
+    document.getElementById('sum-success').textContent = summary[0].success;
+    document.getElementById('sum-revenue').textContent = parseInt(summary[0].revenue||0).toLocaleString('vi-VN');
+    document.getElementById('sum-refund').textContent  = parseInt(refundSum[0].total).toLocaleString('vi-VN');
+  } catch(e) {}
+
+  // Payments
+  let sql = `
+    SELECT p.id, p.booking_id, p.gateway, p.gateway_txn_id, p.amount,
+           to_char(p.paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YY HH24:MI') AS paid,
+           p.status
+    FROM payments p WHERE 1=1
+  `;
+  if (status)  sql += ` AND p.status = '${status}'`;
+  if (gateway) sql += ` AND p.gateway = '${gateway}'`;
+  sql += ' ORDER BY p.id DESC';
+
+  try {
+    const rows = await DB.query(sql);
+    document.getElementById('tbl-payments').innerHTML = rows.length
+      ? rows.map(r => `
+        <tr class="fade-up">
+          <td class="mono">#${r.id}</td>
+          <td class="mono">#${r.booking_id}</td>
+          <td><span class="badge badge-gw-${r.gateway.toLowerCase()}">${r.gateway}</span></td>
+          <td class="mono" style="font-size:0.75rem">${r.gateway_txn_id || '—'}</td>
+          <td class="mono">${parseInt(r.amount).toLocaleString('vi-VN')}đ</td>
+          <td class="mono">${r.paid || '—'}</td>
+          <td><span class="badge badge-pay-${r.status.toLowerCase()}">${r.status}</span></td>
+        </tr>`).join('')
+      : '<tr><td colspan="7" class="loading">Không có dữ liệu</td></tr>';
+  } catch(e) { showError('tbl-payments', 7, e.message); }
+
+  // Refunds
+  try {
+    const refunds = await DB.query(`
+      SELECT r.id, r.booking_id, r.amount, r.refund_rate,
+             to_char(r.requested_at AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YY HH24:MI') AS req,
+             to_char(r.processed_at AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YY HH24:MI') AS proc,
+             r.status
+      FROM refunds r ORDER BY r.id DESC
+    `);
+    document.getElementById('tbl-refunds').innerHTML = refunds.length
+      ? refunds.map(r => `
+        <tr class="fade-up">
+          <td class="mono">#${r.id}</td>
+          <td class="mono">#${r.booking_id}</td>
+          <td class="mono">${parseInt(r.amount).toLocaleString('vi-VN')}đ</td>
+          <td class="mono">${(parseFloat(r.refund_rate)*100).toFixed(0)}%</td>
+          <td class="mono">${r.req}</td>
+          <td class="mono">${r.proc || '—'}</td>
+          <td><span class="badge badge-${r.status.toLowerCase()}">${r.status}</span></td>
+        </tr>`).join('')
+      : '<tr><td colspan="7" class="loading">Không có dữ liệu</td></tr>';
+  } catch(e) { showError('tbl-refunds', 7, e.message); }
+}
+loadPayments();
+</script>
+</body>
+</html>

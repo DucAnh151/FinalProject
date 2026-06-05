@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pam Travel — Đặt vé xe khách</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --ink: #0d0d0d;
+            --paper: #f5f2ec;
+            --cream: #ede9e1;
+            --orange: #e85d2f;
+            --rust: #c44a1e;
+            --muted: #7a7468;
+            --border: #d4cfc6;
+            --white: #ffffff;
+            --green: #2d7a4f;
+            --red: #c0392b;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--paper);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+
+        /* NAV */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--ink);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2.5rem;
+            height: 60px;
+        }
+
+        .nav-logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.8rem;
+            color: var(--orange);
+            letter-spacing: 2px;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .nav-links a {
+            color: #aaa;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 0.4rem 0.9rem;
+            border-radius: 4px;
+            transition: all 0.15s;
+            letter-spacing: 0.3px;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--white);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .nav-links a.active {
+            color: var(--orange);
+        }
+
+        /* HERO */
+        .hero {
+            background: var(--ink);
+            padding: 4rem 2.5rem 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: 'PAM';
+            position: absolute;
+            right: -2rem;
+            top: -1rem;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 14rem;
+            color: rgba(255, 255, 255, 0.03);
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        .hero h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            color: var(--white);
+            line-height: 1.05;
+            letter-spacing: 1px;
+            max-width: 600px;
+        }
+
+        .hero h1 span {
+            color: var(--orange);
+        }
+
+        .hero p {
+            color: #888;
+            font-size: 0.95rem;
+            margin-top: 0.75rem;
+            max-width: 460px;
+            line-height: 1.6;
+        }
+
+        /* SEARCH CARD */
+        .search-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.75rem;
+            margin: 2rem 2.5rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 1rem;
+            align-items: end;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .field label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+        }
+
+        .field select,
+        .field input {
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 0.65rem 0.9rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            color: var(--ink);
+            background: var(--paper);
+            outline: none;
+            transition: border-color 0.15s;
+            cursor: pointer;
+        }
+
+        .field select:focus,
+        .field input:focus {
+            border-color: var(--orange);
+            background: var(--white);
+        }
+
+        .btn-search {
+            background: var(--orange);
+            color: var(--white);
+            border: none;
+            border-radius: 8px;
+            padding: 0.7rem 1.75rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+            white-space: nowrap;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-search:hover {
+            background: var(--rust);
+        }
+
+        .btn-search:active {
+            transform: scale(0.98);
+        }
+
+        /* STATS ROW */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border);
+            margin: 0 2.5rem;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .stat {
+            background: var(--white);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            cursor: pointer;
+            transition: background 0.15s;
+            text-decoration: none;
+        }
+
+        .stat:hover {
+            background: var(--cream);
+        }
+
+        .stat-num {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.2rem;
+            color: var(--orange);
+            line-height: 1;
+            letter-spacing: 1px;
+        }
+
+        .stat-label {
+            font-size: 0.78rem;
+            color: var(--muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* SECTION */
+        .section {
+            padding: 2rem 2.5rem;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+        }
+
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.6rem;
+            letter-spacing: 1px;
+            color: var(--ink);
+        }
+
+        .section-link {
+            font-size: 0.82rem;
+            color: var(--orange);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .section-link:hover {
+            text-decoration: underline;
+        }
+
+        /* TABLE */
+        .table-wrap {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: var(--ink);
+        }
+
+        thead th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #888;
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s;
+        }
+
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: var(--cream);
+        }
+
+        tbody td {
+            padding: 0.8rem 1rem;
+            font-size: 0.875rem;
+            color: var(--ink);
+        }
+
+        .mono {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        /* BADGES */
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-open {
+            background: #d4edda;
+            color: var(--green);
+        }
+
+        .badge-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-confirmed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .badge-cancelled {
+            background: #f8d7da;
+            color: var(--red);
+        }
+
+        .badge-completed {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .badge-available {
+            background: #d4edda;
+            color: var(--green);
+        }
+
+        .badge-locked {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        /* GRID 2 COL */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        /* FOOTER */
+        footer {
+            background: var(--ink);
+            color: #555;
+            text-align: center;
+            padding: 1.5rem;
+            font-size: 0.8rem;
+            margin-top: 3rem;
+        }
+
+        footer span {
+            color: var(--orange);
+        }
+
+        /* LOADING */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .error-msg {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--red);
+            font-size: 0.85rem;
+            background: #fff5f5;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-up {
+            animation: fadeUp 0.35s ease forwards;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <a class="nav-logo" href="index.html">PAM TRAVEL</a>
+        <div class="nav-links">
+            <a href="index.html" class="active">Dashboard</a>
+            <a href="pages/trips.html">Chuyến xe</a>
+            <a href="pages/bookings.html">Đặt vé</a>
+            <a href="pages/users.html">Người dùng</a>
+            <a href="pages/routes.html">Tuyến đường</a>
+            <a href="pages/payments.html">Thanh toán</a>
+        </div>
+    </nav>
+
+    <div class="hero">
+        <h1>HỆ THỐNG QUẢN LÝ<br><span>ĐẶT VÉ XE KHÁCH</span></h1>
+        <p>Pam Travel — Tra cứu dữ liệu thời gian thực từ PostgreSQL</p>
+    </div>
+
+    <div class="search-card">
+        <div class="field">
+            <label>Điểm đi</label>
+            <select id="origin">
+                <option value="">-- Chọn tỉnh --</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Điểm đến</label>
+            <select id="destination">
+                <option value="">-- Chọn tỉnh --</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Ngày đi</label>
+            <input type="date" id="depDate">
+        </div>
+        <button class="btn-search" onclick="window.location.href='pages/trips.html'">TÌM CHUYẾN →</button>
+    </div>
+
+    <div class="stats-row">
+        <a class="stat" href="pages/trips.html">
+            <span class="stat-num" id="stat-trips">—</span>
+            <span class="stat-label">Chuyến xe</span>
+        </a>
+        <a class="stat" href="pages/bookings.html">
+            <span class="stat-num" id="stat-bookings">—</span>
+            <span class="stat-label">Đơn đặt vé</span>
+        </a>
+        <a class="stat" href="pages/users.html">
+            <span class="stat-num" id="stat-users">—</span>
+            <span class="stat-label">Người dùng</span>
+        </a>
+        <a class="stat" href="pages/payments.html">
+            <span class="stat-num" id="stat-revenue">—</span>
+            <span class="stat-label">Doanh thu (VNĐ)</span>
+        </a>
+    </div>
+
+    <div class="grid-2 section">
+        <!-- Trips -->
+        <div>
+            <div class="section-header">
+                <span class="section-title">CHUYẾN GẦN ĐÂY</span>
+                <a class="section-link" href="pages/trips.html">Xem tất cả →</a>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tuyến</th>
+                            <th>Khởi hành</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-trips">
+                        <tr>
+                            <td colspan="4" class="loading">Đang tải...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Bookings -->
+        <div>
+            <div class="section-header">
+                <span class="section-title">ĐẶT VÉ GẦN ĐÂY</span>
+                <a class="section-link" href="pages/bookings.html">Xem tất cả →</a>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Khách</th>
+                            <th>Tổng tiền</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-bookings">
+                        <tr>
+                            <td colspan="4" class="loading">Đang tải...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        © 2026 <span>Pam Travel</span> — Database: PostgreSQL · Backend: Spring Boot · Frontend: Vue.js
+    </footer>
+
+    <script src="js/db.js"></script>
+    <script>
+        // Set default date
+        document.getElementById('depDate').value = new Date().toISOString().split('T')[0];
+
+        async function loadDashboard() {
+            try {
+                // Stats
+                const [trips, bookings, users, payments] = await Promise.all([
+                    DB.query('SELECT COUNT(*) as c FROM trips'),
+                    DB.query('SELECT COUNT(*) as c FROM bookings'),
+                    DB.query('SELECT COUNT(*) as c FROM users'),
+                    DB.query("SELECT COALESCE(SUM(amount),0) as total FROM payments WHERE status='SUCCESS'")
+                ]);
+                document.getElementById('stat-trips').textContent = trips[0].c;
+                document.getElementById('stat-bookings').textContent = bookings[0].c;
+                document.getElementById('stat-users').textContent = users[0].c;
+                const rev = parseInt(payments[0].total);
+                document.getElementById('stat-revenue').textContent = rev.toLocaleString('vi-VN');
+
+                // Provinces for search
+                const provinces = await DB.query('SELECT id, name FROM provinces ORDER BY name');
+                const origin = document.getElementById('origin');
+                const dest = document.getElementById('destination');
+                provinces.forEach(p => {
+                    origin.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                    dest.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                });
+
+                // Trips table
+                const tripsData = await DB.query(`
+      SELECT t.id, p1.name AS origin, p2.name AS dest,
+             to_char(t.departure_time AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM HH24:MI') AS dep,
+             t.status
+      FROM trips t
+      JOIN routes r ON t.route_id = r.id
+      JOIN provinces p1 ON r.origin_province_id = p1.id
+      JOIN provinces p2 ON r.destination_province_id = p2.id
+      ORDER BY t.departure_time DESC LIMIT 5
+    `);
+                document.getElementById('tbl-trips').innerHTML = tripsData.map(r => `
+      <tr class="fade-up">
+        <td class="mono">#${r.id}</td>
+        <td>${r.origin} → ${r.dest}</td>
+        <td class="mono">${r.dep}</td>
+        <td><span class="badge badge-${r.status.toLowerCase()}">${r.status}</span></td>
+      </tr>`).join('');
+
+                // Bookings table
+                const bookData = await DB.query(`
+      SELECT b.id, u.full_name, b.total_amount, b.status
+      FROM bookings b JOIN users u ON b.user_id = u.id
+      ORDER BY b.created_at DESC LIMIT 5
+    `);
+                document.getElementById('tbl-bookings').innerHTML = bookData.map(r => `
+      <tr class="fade-up">
+        <td class="mono">#${r.id}</td>
+        <td>${r.full_name}</td>
+        <td class="mono">${parseInt(r.total_amount).toLocaleString('vi-VN')}đ</td>
+        <td><span class="badge badge-${r.status.toLowerCase()}">${r.status}</span></td>
+      </tr>`).join('');
+
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        loadDashboard();
+    </script>
+</body>
+
+</html>

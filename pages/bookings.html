@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đặt vé — Pam Travel</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<nav>
+  <a class="nav-logo" href="../index.html">PAM TRAVEL</a>
+  <div class="nav-links">
+    <a href="../index.html">Dashboard</a>
+    <a href="trips.html">Chuyến xe</a>
+    <a href="bookings.html" class="active">Đặt vé</a>
+    <a href="users.html">Người dùng</a>
+    <a href="routes.html">Tuyến đường</a>
+    <a href="payments.html">Thanh toán</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">ĐẶT VÉ</h1>
+    <p class="page-sub">Toàn bộ đơn đặt vé trong hệ thống</p>
+  </div>
+  <div class="filter-bar">
+    <select id="filter-status" onchange="loadBookings()">
+      <option value="">Tất cả</option>
+      <option value="PENDING">PENDING</option>
+      <option value="CONFIRMED">CONFIRMED</option>
+      <option value="CANCELLED">CANCELLED</option>
+      <option value="COMPLETED">COMPLETED</option>
+    </select>
+  </div>
+</div>
+
+<div class="content">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Khách hàng</th>
+          <th>Tuyến</th>
+          <th>Điểm đón</th>
+          <th>Điểm trả</th>
+          <th>Tổng tiền</th>
+          <th>Ngày đặt</th>
+          <th>Hết hạn</th>
+          <th>Trạng thái</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-bookings">
+        <tr><td colspan="9" class="loading">Đang tải dữ liệu...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<footer>© 2026 <span>Pam Travel</span></footer>
+
+<script src="../js/db.js"></script>
+<script src="../js/common.js"></script>
+<script>
+async function loadBookings() {
+  const status = document.getElementById('filter-status').value;
+  let sql = `
+    SELECT b.id,
+           u.full_name, u.phone_number,
+           p1.name AS origin, p2.name AS dest,
+           rs1.stop_name AS pickup,
+           rs2.stop_name AS dropoff,
+           b.total_amount,
+           to_char(b.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YY HH24:MI') AS created,
+           to_char(b.expires_at AT TIME ZONE 'Asia/Ho_Chi_Minh','HH24:MI') AS expires,
+           b.status
+    FROM bookings b
+    JOIN users u       ON b.user_id         = u.id
+    JOIN trips t       ON b.trip_id         = t.id
+    JOIN routes r      ON t.route_id        = r.id
+    JOIN provinces p1  ON r.origin_province_id      = p1.id
+    JOIN provinces p2  ON r.destination_province_id = p2.id
+    JOIN route_stops rs1 ON b.pickup_stop_id  = rs1.id
+    JOIN route_stops rs2 ON b.dropoff_stop_id = rs2.id
+  `;
+  if (status) sql += ` WHERE b.status = '${status}'`;
+  sql += ' ORDER BY b.created_at DESC';
+
+  try {
+    const rows = await DB.query(sql);
+    const tbody = document.getElementById('tbl-bookings');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="loading">Không có dữ liệu</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr class="fade-up">
+        <td class="mono">#${r.id}</td>
+        <td>
+          <div style="font-weight:500">${r.full_name}</div>
+          <div class="mono" style="font-size:0.75rem;color:var(--muted)">${r.phone_number}</div>
+        </td>
+        <td>${r.origin} → ${r.dest}</td>
+        <td style="font-size:0.8rem">${r.pickup}</td>
+        <td style="font-size:0.8rem">${r.dropoff}</td>
+        <td class="mono">${parseInt(r.total_amount).toLocaleString('vi-VN')}đ</td>
+        <td class="mono">${r.created}</td>
+        <td class="mono">${r.expires || '—'}</td>
+        <td><span class="badge badge-${r.status.toLowerCase()}">${r.status}</span></td>
+      </tr>`).join('');
+  } catch(e) {
+    showError('tbl-bookings', 9, e.message);
+  }
+}
+loadBookings();
+</script>
+</body>
+</html>

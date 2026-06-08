@@ -16,6 +16,8 @@ app.use('/api/auth', authRoutes);
 const tripRoutes = require('./routes/trips');
 app.use('/api/trips', tripRoutes);
 
+const bookingRoutes = require('./routes/bookings');
+app.use('/api/bookings', bookingRoutes);
 
 const pool = new Pool({
   host:     process.env.DB_HOST,

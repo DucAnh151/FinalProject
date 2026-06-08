@@ -12,6 +12,11 @@ app.use(cors());
 app.use(express.json());
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
+
+const tripRoutes = require('./routes/trips');
+app.use('/api/trips', tripRoutes);
+
+
 const pool = new Pool({
   host:     process.env.DB_HOST,
   port:     parseInt(process.env.DB_PORT),

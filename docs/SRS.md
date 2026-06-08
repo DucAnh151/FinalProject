@@ -488,7 +488,41 @@ CREATE INDEX idx_notifications_unread
 | Phase 4   | AI đề xuất tuyến · Live Tracking GPS                          | ⬜ Chưa làm |
 
 ---
+## Bức tranh tổng thể hệ thống
+MASTER DATA
+│
+├── provinces
+├── operators
+└── vehicle_types
 
+XE
+│
+├── vehicles
+└── seats
+
+TUYẾN & CHUYẾN
+│
+├── routes
+├── route_stops
+├── trips
+└── trip_seat_status
+
+NGƯỜI DÙNG
+│
+└── users
+
+ĐẶT VÉ
+│
+├── bookings
+├── booking_seats
+├── payments
+├── tickets
+└── refunds
+
+PHỤ TRỢ
+│
+├── reviews
+└── notifications
 ## Ghi chú
 
 Tài liệu này là bản đặc tả yêu cầu phần mềm cho phiên bản MVP của Pam Travel. Các tính năng Loyalty Program, Voucher, Dynamic Pricing và Live Tracking sẽ được đặc tả ở các phiên bản tiếp theo.

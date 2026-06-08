@@ -74,4 +74,66 @@ router.get('/provinces', async (req, res) => {
   }
 });
 
+// GET /api/trips/:id/seat-map
+router.get('/:id/seat-map', async (req, res) => {
+  const tripId = parseInt(req.params.id);
+
+  try {
+    // Lấy thông tin chuyến + xe + loại xe
+    const trip = await prisma.trips.findUnique({
+      where: { id: tripId },
+      include: {
+        vehicles: {
+          include: { vehicle_types: true }
+        }
+      }
+    });
+
+    if (!trip)
+      return res.status(404).json({ error: 'Không tìm thấy chuyến xe' });
+
+    // Lấy tất cả ghế của xe
+    const seats = await prisma.seats.findMany({
+      where: { vehicle_id: trip.vehicle_id },
+      orderBy: [{ floor_number: 'asc' }, { row_number: 'asc' }, { col_number: 'asc' }]
+    });
+
+    // Lấy trạng thái ghế của chuyến này
+    const seatStatuses = await prisma.trip_seat_status.findMany({
+      where: { trip_id: tripId }
+    });
+
+    // Map trạng thái vào từng ghế
+    const statusMap = {};
+    seatStatuses.forEach(s => {
+      statusMap[Number(s.seat_id)] = {
+        status:      s.status,
+        lockedUntil: s.locked_until,
+      };
+    });
+
+    const seatList = seats.map(s => ({
+      seatId:      Number(s.id),
+      seatName:    s.seat_name,
+      floor:       s.floor_number,
+      row:         s.row_number,
+      col:         s.col_number,
+      status:      statusMap[Number(s.id)]?.status ?? 'AVAILABLE',
+      lockedUntil: statusMap[Number(s.id)]?.lockedUntil ?? null,
+    }));
+
+    res.json({
+      tripId:      Number(trip.id),
+      vehicleType: trip.vehicles.vehicle_types.name,
+      layout:      trip.vehicles.vehicle_types.seat_layout_json,
+      totalSeats:  trip.vehicles.vehicle_types.total_seats,
+      seats:       seatList,
+    });
+
+  } catch (e) {
+    console.error('Seat map error:', e);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
 module.exports = router;

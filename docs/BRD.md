@@ -145,6 +145,13 @@ graph TD
 - Dữ liệu sơ đồ ghế ngồi phải được cập nhật ngay lập tức (Real-time update) để tránh việc nhiều người dùng thấy ghế trống nhưng đặt thì báo lỗi.
 - Việc hoàn tiền (Refund) khi khách hủy vé phải phụ thuộc vào API của đối tác cổng thanh toán (VNPay/Momo) và có thể mất từ 3-7 ngày làm việc để tiền về thẻ.
 
+### Ràng buộc hiệu năng
+
+- Hệ thống phải hỗ trợ tối thiểu 1.000 người dùng đồng thời trong giai đoạn MVP.
+- Kết quả tìm kiếm chuyến xe phải trả về trong vòng dưới 2 giây đối với 95% yêu cầu.
+- Trạng thái ghế phải được cập nhật tới người dùng khác trong vòng tối đa 3 giây.
+- Hệ thống phải đảm bảo không xảy ra hiện tượng bán trùng ghế (Double Booking).
+
 ### Giả định:
 
 - Hành khách có kết nối mạng 3G/4G/Wifi tại điểm lên xe để mở mã QR trên ứng dụng.
@@ -162,7 +169,8 @@ graph TD
 | AC-04 | Đặt vé & Thanh toán | Thực hiện thanh toán thành công qua Sandbox của VNPay/Momo. App sinh ra mã QR và lưu vào mục "Vé của tôi", gửi email xác nhận. |
 | AC-05 | Soát vé QR | Dùng tài khoản Tài xế quét mã QR của khách. Báo xanh (Vé hợp lệ) → Đổi trạng thái vé thành "Đã lên xe". Quét lại lần 2 báo đỏ (Vé đã được sử dụng). |
 | AC-06 | Hủy vé & Tính phí | Khách nhấn hủy vé trước chuyến đi 18 tiếng. Hệ thống báo phí hủy 50%, số tiền hoàn trả 50%. Nhấn xác nhận, ghế trên hệ thống chuyển thành Trống. |
-
+|AC-07 | Chống đặt trùng ghế|User A và User B cùng đặt ghế A1.  Kết quả: - Chỉ 1 giao dịch thành công, Giao dịch còn lại nhận lỗi 409.|
+|AC-08 | Hiệu lực Seat Lock| User A giữ ghế A1. Trong 10 phút: User B không được chọn ghế A1. Trong 10 phút: User B không được chọn ghế A1. |
 ---
 
 ## 10. Lộ trình phát triển dự kiến

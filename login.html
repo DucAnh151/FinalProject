@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đăng nhập — Pam Travel</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:    #0d0d0d;
+  --paper:  #f5f2ec;
+  --cream:  #ede9e1;
+  --orange: #e85d2f;
+  --rust:   #c44a1e;
+  --muted:  #7a7468;
+  --border: #d4cfc6;
+  --white:  #ffffff;
+  --green:  #2d7a4f;
+  --red:    #c0392b;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--ink);
+  color: var(--ink);
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* LEFT — branding panel */
+.panel-left {
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+.panel-left::before {
+  content: 'PAM\ATRAVEL';
+  white-space: pre;
+  position: absolute;
+  right: -3rem; top: 50%;
+  transform: translateY(-50%);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 9rem;
+  line-height: 0.9;
+  color: rgba(255,255,255,0.03);
+  pointer-events: none;
+  letter-spacing: -4px;
+}
+.brand {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  color: var(--orange);
+  letter-spacing: 3px;
+}
+.panel-tagline {
+  max-width: 340px;
+}
+.panel-tagline h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3.5rem;
+  color: var(--white);
+  line-height: 1;
+  letter-spacing: 1px;
+  margin-bottom: 1rem;
+}
+.panel-tagline h2 span { color: var(--orange); }
+.panel-tagline p {
+  color: #666;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.panel-features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #555;
+  font-size: 0.82rem;
+}
+.feature-dot {
+  width: 6px; height: 6px;
+  background: var(--orange);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* RIGHT — form panel */
+.panel-right {
+  background: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+}
+.form-box {
+  width: 100%;
+  max-width: 400px;
+}
+
+/* TABS */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 2rem;
+}
+.tab {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+  user-select: none;
+}
+.tab.active {
+  color: var(--orange);
+  border-bottom-color: var(--orange);
+}
+.tab:hover:not(.active) { color: var(--ink); }
+
+/* FORM */
+.form-section { display: none; }
+.form-section.active { display: block; }
+
+.form-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 1px;
+  margin-bottom: 0.35rem;
+}
+.form-sub {
+  font-size: 0.83rem;
+  color: var(--muted);
+  margin-bottom: 1.75rem;
+  line-height: 1.5;
+}
+
+.field { margin-bottom: 1.1rem; }
+.field label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.field input {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: var(--white);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field input:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(232,93,47,0.1);
+}
+.field input.error { border-color: var(--red); }
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.btn-submit {
+  width: 100%;
+  background: var(--orange);
+  color: var(--white);
+  border: none;
+  border-radius: 8px;
+  padding: 0.8rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  letter-spacing: 0.3px;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.btn-submit:hover { background: var(--rust); }
+.btn-submit:active { transform: scale(0.99); }
+.btn-submit:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ALERTS */
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.83rem;
+  margin-bottom: 1.25rem;
+  display: none;
+  line-height: 1.5;
+}
+.alert.show { display: block; }
+.alert-error { background: #fdf0ef; color: var(--red); border: 1px solid #f5c6c2; }
+.alert-success { background: #edf7f1; color: var(--green); border: 1px solid #b8dfc8; }
+
+/* DIVIDER */
+.divider {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin: 1.25rem 0;
+  position: relative;
+}
+.divider::before, .divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 42%;
+  height: 1px;
+  background: var(--border);
+}
+.divider::before { left: 0; }
+.divider::after  { right: 0; }
+
+/* HINT */
+.hint {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--cream);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.hint strong { color: var(--ink); }
+
+/* SPINNER */
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes slideIn {
+  from { opacity:0; transform:translateY(10px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.form-section.active { animation: slideIn 0.25s ease; }
+</style>
+</head>
+<body>
+
+<!-- LEFT PANEL -->
+<div class="panel-left">
+  <div class="brand">PAM TRAVEL</div>
+
+  <div class="panel-tagline">
+    <h2>ĐẶT VÉ<br><span>THÔNG MINH</span></h2>
+    <p>Hệ thống quản lý đặt vé xe khách trực tuyến. Tìm kiếm chuyến đi, chọn ghế và thanh toán an toàn.</p>
+  </div>
+
+  <div class="panel-features">
+    <div class="feature"><span class="feature-dot"></span> Sơ đồ ghế thời gian thực</div>
+    <div class="feature"><span class="feature-dot"></span> Thanh toán VNPay · MoMo</div>
+    <div class="feature"><span class="feature-dot"></span> Vé điện tử QR Code</div>
+    <div class="feature"><span class="feature-dot"></span> Soát vé tự động</div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="panel-right">
+  <div class="form-box">
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('login')">Đăng nhập</div>
+      <div class="tab" onclick="switchTab('register')">Đăng ký</div>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div class="form-section active" id="section-login">
+      <div class="form-title">CHÀO MỪNG</div>
+      <div class="form-sub">Đăng nhập bằng email hoặc số điện thoại</div>
+
+      <div class="alert alert-error" id="login-error"></div>
+      <div class="alert alert-success" id="login-success"></div>
+
+      <div class="field">
+        <label>Email hoặc Số điện thoại</label>
+        <input type="text" id="login-identifier" placeholder="admin@pamtravel.vn" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Mật khẩu</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <button class="btn-submit" id="btn-login" onclick="doLogin()">
+        <span class="spinner" id="login-spinner"></span>
+        <span id="login-btn-text">ĐĂNG NHẬP</span>
+      </button>
+
+      <div class="hint">
+        <strong>Tài khoản thử nghiệm:</strong><br>
+        👤 <strong>admin@pamtravel.vn</strong> / admin123 (ADMIN)<br>
+        👤 <strong>driver1@gmail.com</strong> / driver123 (DRIVER)<br>
+        👤 <strong>khach1@gmail.com</strong> / customer123 (CUSTOMER)
+      </div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div class="form-section" id="section-register">
+      <div class="form-title">TẠO TÀI KHOẢN</div>
+      <div class="form-sub">Đăng ký tài khoản hành khách mới</div>
+
+      <div class="alert alert-error"   id="reg-error"></div>
+      <div class="alert alert-success" id="reg-success"></div>
+
+      <div class="field">
+        <label>Họ và tên</label>
+        <input type="text" id="reg-name" placeholder="Nguyễn Văn A">
+      </div>
+      <div class="field-row">
+        <div class="field" style="margin:0">
+          <label>Số điện thoại</label>
+          <input type="tel" id="reg-phone" placeholder="0901234567">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Email</label>
+          <input type="email" id="reg-email" placeholder="email@gmail.com">
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:1.1rem">
+        <div class="field" style="margin:0">
+          <label>Mật khẩu</label>
+          <input type="password" id="reg-password" placeholder="Tối thiểu 6 ký tự">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Xác nhận mật khẩu</label>
+          <input type="password" id="reg-confirm" placeholder="Nhập lại mật khẩu">
+        </div>
+      </div>
+
+      <button class="btn-submit" id="btn-register" onclick="doRegister()" style="margin-top:1.25rem">
+        <span class="spinner" id="reg-spinner"></span>
+        <span id="reg-btn-text">TẠO TÀI KHOẢN</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:3001';
+
+// ─── TAB SWITCH ──────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', (i === 0 && tab==='login') || (i===1 && tab==='register'));
+  });
+  document.getElementById('section-login').classList.toggle('active',    tab==='login');
+  document.getElementById('section-register').classList.toggle('active', tab==='register');
+  clearAlerts();
+}
+
+function clearAlerts() {
+  document.querySelectorAll('.alert').forEach(a => {
+    a.classList.remove('show');
+    a.textContent = '';
+  });
+}
+
+function showAlert(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function setLoading(btnId, spinnerId, textId, loading) {
+  document.getElementById(btnId).disabled = loading;
+  document.getElementById(spinnerId).style.display = loading ? 'block' : 'none';
+  document.getElementById(textId).style.opacity   = loading ? '0.4' : '1';
+}
+
+// ─── ENTER KEY ───────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const loginActive = document.getElementById('section-login').classList.contains('active');
+  if (loginActive) doLogin();
+  else doRegister();
+});
+
+// ─── LOGIN ───────────────────────────────────────────────────────────────────
+async function doLogin() {
+  clearAlerts();
+  const identifier = document.getElementById('login-identifier').value.trim();
+  const password   = document.getElementById('login-password').value;
+
+  if (!identifier || !password) {
+    showAlert('login-error', '⚠️ Vui lòng nhập đầy đủ tài khoản và mật khẩu');
+    return;
+  }
+
+  setLoading('btn-login', 'login-spinner', 'login-btn-text', true);
+
+  try {
+    const res  = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showAlert('login-error', '❌ ' + (data.error || 'Đăng nhập thất bại'));
+      return;
+    }
+
+    // Lưu session
+    sessionStorage.setItem('pam_user', JSON.stringify(data.user));
+
+    showAlert('login-success', `✅ Xin chào ${data.user.fullName || data.user.email}! Đang chuyển trang...`);
+
+    setTimeout(() => {
+      window.location.href = 'index.html';
+    }, 800);
+
+  } catch(e) {
+    showAlert('login-error', '❌ Không thể kết nối server. Hãy chạy: node js/server.js');
+  } finally {
+    setLoading('btn-login', 'login-spinner', 'login-btn-text', false);
+  }
+}
+
+// ─── REGISTER ────────────────────────────────────────────────────────────────
+async function doRegister() {
+  clearAlerts();
+  const fullName = document.getElementById('reg-name').value.trim();
+  const phone    = document.getElementById('reg-phone').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const confirm  = document.getElementById('reg-confirm').value;
+
+  if (!fullName) {
+    showAlert('reg-error', '⚠️ Vui lòng nhập họ và tên'); return;
+  }
+  if (!phone && !email) {
+    showAlert('reg-error', '⚠️ Vui lòng nhập số điện thoại hoặc email'); return;
+  }
+  if (password.length < 6) {
+    showAlert('reg-error', '⚠️ Mật khẩu tối thiểu 6 ký tự'); return;
+  }
+  if (password !== confirm) {
+    showAlert('reg-error', '⚠️ Mật khẩu xác nhận không khớp'); return;
+  }
+
+  setLoading('btn-register', 'reg-spinner', 'reg-btn-text', true);
+
+  try {
+    const res  = await fetch(`${API}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, phone: phone || null, email: email || null, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showAlert('reg-error', '❌ ' + (data.error || 'Đăng ký thất bại'));
+      return;
+    }
+
+    showAlert('reg-success', `✅ Tạo tài khoản thành công! Đang chuyển sang đăng nhập...`);
+
+    // Tự điền identifier vào form login
+    setTimeout(() => {
+      document.getElementById('login-identifier').value = phone || email;
+      switchTab('login');
+      showAlert('login-success', '✅ Tài khoản đã tạo. Vui lòng đăng nhập.');
+    }, 1200);
+
+  } catch(e) {
+    showAlert('reg-error', '❌ Không thể kết nối server. Hãy chạy: node js/server.js');
+  } finally {
+    setLoading('btn-register', 'reg-spinner', 'reg-btn-text', false);
+  }
+}
+
+// Nếu đã đăng nhập rồi → redirect thẳng vào dashboard
+if (sessionStorage.getItem('pam_user')) {
+  window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>

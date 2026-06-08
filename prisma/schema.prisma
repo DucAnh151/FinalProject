@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model booking_seats {
+  id              BigInt    @id @default(autoincrement())
+  booking_id      BigInt
+  seat_id         BigInt
+  passenger_name  String    @db.VarChar(200)
+  passenger_phone String    @db.VarChar(15)
+  bookings        bookings  @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  seats           seats     @relation(fields: [seat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tickets         tickets[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model bookings {
+  id                                                BigInt          @id @default(autoincrement())
+  user_id                                           BigInt
+  trip_id                                           BigInt
+  pickup_stop_id                                    Int
+  dropoff_stop_id                                   Int
+  total_amount                                      Int
+  status                                            String          @default("PENDING") @db.VarChar(15)
+  expires_at                                        DateTime?       @db.Timestamptz(6)
+  created_at                                        DateTime        @default(now()) @db.Timestamptz(6)
+  booking_seats                                     booking_seats[]
+  route_stops_bookings_dropoff_stop_idToroute_stops route_stops     @relation("bookings_dropoff_stop_idToroute_stops", fields: [dropoff_stop_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  route_stops_bookings_pickup_stop_idToroute_stops  route_stops     @relation("bookings_pickup_stop_idToroute_stops", fields: [pickup_stop_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trips                                             trips           @relation(fields: [trip_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                             users           @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments                                          payments[]
+  refunds                                           refunds[]
+  reviews                                           reviews[]
+  tickets                                           tickets[]
+
+  @@index([trip_id], map: "idx_bookings_trip")
+  @@index([user_id], map: "idx_bookings_user")
+}
+
+model notifications {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  type       String   @db.VarChar(30)
+  content    String
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model operators {
+  id        Int        @id @default(autoincrement())
+  name      String     @db.VarChar(150)
+  hotline   String?    @db.VarChar(20)
+  logo_url  String?
+  is_active Boolean    @default(true)
+  trips     trips[]
+  vehicles  vehicles[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payments {
+  id                   BigInt    @id @default(autoincrement())
+  booking_id           BigInt
+  gateway              String    @db.VarChar(20)
+  gateway_txn_id       String?   @unique @db.VarChar(100)
+  amount               Int
+  status               String    @default("PENDING") @db.VarChar(15)
+  paid_at              DateTime? @db.Timestamptz(6)
+  gateway_raw_response String?
+  bookings             bookings  @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  refunds              refunds[]
+}
+
+model provinces {
+  id                                               Int           @id @default(autoincrement())
+  name                                             String        @db.VarChar(100)
+  slug                                             String        @unique @db.VarChar(100)
+  route_stops                                      route_stops[]
+  routes_routes_destination_province_idToprovinces routes[]      @relation("routes_destination_province_idToprovinces")
+  routes_routes_origin_province_idToprovinces      routes[]      @relation("routes_origin_province_idToprovinces")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model refunds {
+  id           BigInt    @id @default(autoincrement())
+  booking_id   BigInt
+  payment_id   BigInt
+  amount       Int
+  refund_rate  Decimal   @db.Decimal(3, 2)
+  status       String    @default("PENDING") @db.VarChar(15)
+  requested_at DateTime  @default(now()) @db.Timestamptz(6)
+  processed_at DateTime? @db.Timestamptz(6)
+  bookings     bookings  @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments     payments  @relation(fields: [payment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reviews {
+  id         BigInt   @id @default(autoincrement())
+  trip_id    BigInt
+  user_id    BigInt
+  booking_id BigInt
+  rating     Int
+  comment    String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  bookings   bookings @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trips      trips    @relation(fields: [trip_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([booking_id, user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model route_stops {
+  id                                             Int        @id @default(autoincrement())
+  route_id                                       Int
+  province_id                                    Int
+  stop_order                                     Int
+  stop_name                                      String     @db.VarChar(200)
+  offset_minutes                                 Int        @default(0)
+  stop_type                                      String     @db.VarChar(10)
+  bookings_bookings_dropoff_stop_idToroute_stops bookings[] @relation("bookings_dropoff_stop_idToroute_stops")
+  bookings_bookings_pickup_stop_idToroute_stops  bookings[] @relation("bookings_pickup_stop_idToroute_stops")
+  provinces                                      provinces  @relation(fields: [province_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  routes                                         routes     @relation(fields: [route_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([route_id, stop_order])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model routes {
+  id                                                  Int           @id @default(autoincrement())
+  origin_province_id                                  Int
+  destination_province_id                             Int
+  base_price                                          Int
+  duration_minutes                                    Int
+  route_stops                                         route_stops[]
+  provinces_routes_destination_province_idToprovinces provinces     @relation("routes_destination_province_idToprovinces", fields: [destination_province_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  provinces_routes_origin_province_idToprovinces      provinces     @relation("routes_origin_province_idToprovinces", fields: [origin_province_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trips                                               trips[]
+}
+
+model seats {
+  id               BigInt             @id @default(autoincrement())
+  vehicle_id       Int
+  seat_name        String             @db.VarChar(10)
+  floor_number     Int                @default(1)
+  row_number       Int
+  col_number       Int
+  booking_seats    booking_seats[]
+  vehicles         vehicles           @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trip_seat_status trip_seat_status[]
+
+  @@unique([vehicle_id, seat_name])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model tickets {
+  id              BigInt        @id @default(autoincrement())
+  booking_id      BigInt
+  booking_seat_id BigInt
+  qr_code         String        @unique @db.VarChar(255)
+  status          String        @default("ISSUED") @db.VarChar(15)
+  checked_in_at   DateTime?     @db.Timestamptz(6)
+  checked_in_by   BigInt?
+  bookings        bookings      @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  booking_seats   booking_seats @relation(fields: [booking_seat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users?        @relation(fields: [checked_in_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model trip_seat_status {
+  id                BigInt    @id @default(autoincrement())
+  trip_id           BigInt
+  seat_id           BigInt
+  status            String    @default("AVAILABLE") @db.VarChar(15)
+  locked_until      DateTime? @db.Timestamptz(6)
+  locked_by_user_id BigInt?
+  users             users?    @relation(fields: [locked_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  seats             seats     @relation(fields: [seat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trips             trips     @relation(fields: [trip_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([trip_id, seat_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model trips {
+  id               BigInt             @id @default(autoincrement())
+  route_id         Int
+  vehicle_id       Int
+  operator_id      Int
+  departure_time   DateTime           @db.Timestamptz(6)
+  arrival_time     DateTime           @db.Timestamptz(6)
+  price_override   Int?
+  status           String             @default("OPEN") @db.VarChar(20)
+  bookings         bookings[]
+  reviews          reviews[]
+  trip_seat_status trip_seat_status[]
+  operators        operators          @relation(fields: [operator_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  routes           routes             @relation(fields: [route_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicles         vehicles           @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([route_id, departure_time], map: "idx_trips_route_departure")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id               BigInt             @id @default(autoincrement())
+  phone_number     String?            @unique @db.VarChar(15)
+  email            String?            @unique @db.VarChar(255)
+  full_name        String?            @db.VarChar(200)
+  password_hash    String?            @db.VarChar(255)
+  role             String             @default("CUSTOMER") @db.VarChar(10)
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  payment_pin      String?            @db.VarChar(255)
+  bookings         bookings[]
+  notifications    notifications[]
+  reviews          reviews[]
+  tickets          tickets[]
+  trip_seat_status trip_seat_status[]
+}
+
+model vehicle_types {
+  id               Int        @id @default(autoincrement())
+  name             String     @db.VarChar(100)
+  seat_layout_json Json
+  total_seats      Int
+  floors           Int        @default(1)
+  vehicles         vehicles[]
+}
+
+model vehicles {
+  id              Int           @id @default(autoincrement())
+  operator_id     Int
+  vehicle_type_id Int
+  license_plate   String        @unique @db.VarChar(20)
+  name            String?       @db.VarChar(100)
+  seats           seats[]
+  trips           trips[]
+  operators       operators     @relation(fields: [operator_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle_types   vehicle_types @relation(fields: [vehicle_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}

@@ -62,5 +62,47 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ error: 'Lỗi server' });
   }
 });
+// POST /api/auth/login
+router.post('/login', async (req, res) => {
+  const { identifier, password } = req.body;
 
+  if (!identifier || !password)
+    return res.status(400).json({ error: 'Vui lòng nhập tài khoản và mật khẩu' });
+
+  try {
+    const user = await prisma.users.findFirst({
+      where: {
+        OR: [
+          { email:        identifier },
+          { phone_number: identifier },
+        ]
+      }
+    });
+
+    if (!user)
+      return res.status(401).json({ error: 'Tài khoản không tồn tại' });
+
+    if (!user.is_active)
+      return res.status(403).json({ error: 'Tài khoản đã bị khóa' });
+
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match)
+      return res.status(401).json({ error: 'Mật khẩu không đúng' });
+
+    res.json({
+      success: true,
+      user: {
+        id:       Number(user.id),
+        fullName: user.full_name,
+        email:    user.email,
+        phone:    user.phone_number,
+        role:     user.role,
+      }
+    });
+
+  } catch (e) {
+    console.error('Login error:', e);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
 module.exports = router;

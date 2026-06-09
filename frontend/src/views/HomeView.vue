@@ -75,6 +75,8 @@ onMounted(async () => {
   try {
     const res = await api.get('/trips/provinces')
     provinces.value = res.data
+    // Cache lại để SearchView dùng
+    sessionStorage.setItem('provinces_cache', JSON.stringify(res.data))
   } catch (e) {
     error.value = 'Không tải được danh sách tỉnh thành'
   }

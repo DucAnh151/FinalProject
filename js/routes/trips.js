@@ -136,4 +136,35 @@ router.get('/:id/seat-map', async (req, res) => {
   }
 });
 
+// GET /api/trips/:id/stops — lấy điểm đón/trả của chuyến
+router.get('/:id/stops', async (req, res) => {
+  const tripId = parseInt(req.params.id)
+
+  try {
+    const trip = await prisma.trips.findUnique({
+      where: { id: tripId },
+      include: {
+        routes: {
+          include: { route_stops: { orderBy: { stop_order: 'asc' } } }
+        }
+      }
+    })
+
+    if (!trip) return res.status(404).json({ error: 'Không tìm thấy chuyến xe' })
+
+    const stops = trip.routes.route_stops.map(s => ({
+      id:       s.id,
+      name:     s.stop_name,
+      order:    s.stop_order,
+      type:     s.stop_type,
+      offsetMinutes: s.offset_minutes,
+    }))
+
+    res.json({ tripId, stops })
+  } catch (e) {
+    console.error('Stops error:', e)
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
 module.exports = router;

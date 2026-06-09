@@ -1,1 +1,449 @@
-<template><div>Admin</div></template>
+<template>
+  <div class="admin-page">
+    <!-- NAV -->
+    <nav class="navbar">
+      <RouterLink to="/" class="nav-logo">PAM TRAVEL</RouterLink>
+      <div class="nav-links">
+        <button
+          v-for="tab in tabs" :key="tab.key"
+          :class="['tab-btn', { active: activeTab === tab.key }]"
+          @click="activeTab = tab.key"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+      <div class="nav-user">
+        <span class="role-badge">ADMIN</span>
+        <span>{{ auth.user?.fullName }}</span>
+        <button class="btn-logout" @click="logout">Đăng xuất</button>
+      </div>
+    </nav>
+
+    <!-- STATS ROW -->
+    <div class="stats-row">
+      <div class="stat-card" v-for="s in stats" :key="s.label">
+        <div class="stat-num">{{ s.value }}</div>
+        <div class="stat-label">{{ s.label }}</div>
+      </div>
+    </div>
+
+    <!-- TABS CONTENT -->
+    <div class="content">
+
+      <!-- TRIPS TAB -->
+      <div v-if="activeTab === 'trips'">
+        <div class="section-header">
+          <span class="section-title">DANH SÁCH CHUYẾN XE</span>
+          <div class="filter-bar">
+            <select v-model="tripFilter">
+              <option value="">Tất cả trạng thái</option>
+              <option value="OPEN">OPEN</option>
+              <option value="CLOSED">CLOSED</option>
+              <option value="CANCELLED">CANCELLED</option>
+              <option value="COMPLETED">COMPLETED</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Tuyến</th><th>Nhà xe</th>
+                <th>Khởi hành</th><th>Giá</th><th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading">
+                <td colspan="6" class="loading">Đang tải...</td>
+              </tr>
+              <tr v-else-if="!filteredTrips.length">
+                <td colspan="6" class="loading">Không có dữ liệu</td>
+              </tr>
+              <tr v-for="t in filteredTrips" :key="t.id">
+                <td class="mono">#{{ t.id }}</td>
+                <td><strong>{{ t.origin }}</strong> → {{ t.destination }}</td>
+                <td>{{ t.operator }}</td>
+                <td class="mono">{{ formatDateTime(t.departureTime) }}</td>
+                <td class="mono">{{ formatPrice(t.price) }}đ</td>
+                <td><span :class="['badge', `badge-${t.status.toLowerCase()}`]">{{ t.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- BOOKINGS TAB -->
+      <div v-if="activeTab === 'bookings'">
+        <div class="section-header">
+          <span class="section-title">ĐƠN ĐẶT VÉ</span>
+          <div class="filter-bar">
+            <select v-model="bookingFilter">
+              <option value="">Tất cả</option>
+              <option value="PENDING">PENDING</option>
+              <option value="CONFIRMED">CONFIRMED</option>
+              <option value="CANCELLED">CANCELLED</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Khách hàng</th><th>Tuyến</th>
+                <th>Tổng tiền</th><th>Ngày đặt</th><th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loadingBookings">
+                <td colspan="6" class="loading">Đang tải...</td>
+              </tr>
+              <tr v-else-if="!filteredBookings.length">
+                <td colspan="6" class="loading">Không có dữ liệu</td>
+              </tr>
+              <tr v-for="b in filteredBookings" :key="b.id">
+                <td class="mono">#{{ b.id }}</td>
+                <td>{{ b.userName }}</td>
+                <td>{{ b.origin }} → {{ b.destination }}</td>
+                <td class="mono">{{ formatPrice(b.totalAmount) }}đ</td>
+                <td class="mono">{{ formatDateTime(b.createdAt) }}</td>
+                <td><span :class="['badge', `badge-${b.status.toLowerCase()}`]">{{ b.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- USERS TAB -->
+      <div v-if="activeTab === 'users'">
+        <div class="section-header">
+          <span class="section-title">NGƯỜI DÙNG</span>
+          <div class="filter-bar">
+            <select v-model="userFilter">
+              <option value="">Tất cả vai trò</option>
+              <option value="CUSTOMER">CUSTOMER</option>
+              <option value="DRIVER">DRIVER</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Họ tên</th><th>Email / SĐT</th>
+                <th>Vai trò</th><th>Trạng thái</th><th>Ngày tạo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loadingUsers">
+                <td colspan="6" class="loading">Đang tải...</td>
+              </tr>
+              <tr v-else-if="!filteredUsers.length">
+                <td colspan="6" class="loading">Không có dữ liệu</td>
+              </tr>
+              <tr v-for="u in filteredUsers" :key="u.id">
+                <td class="mono">#{{ u.id }}</td>
+                <td><strong>{{ u.fullName }}</strong></td>
+                <td class="mono">{{ u.email || u.phone }}</td>
+                <td><span :class="['badge', `badge-role-${u.role.toLowerCase()}`]">{{ u.role }}</span></td>
+                <td>
+                  <span :class="['badge', u.isActive ? 'badge-open' : 'badge-cancelled']">
+                    {{ u.isActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td class="mono">{{ formatDate(u.createdAt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PAYMENTS TAB -->
+      <div v-if="activeTab === 'payments'">
+        <div class="section-header">
+          <span class="section-title">THANH TOÁN</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Booking</th><th>Cổng TT</th>
+                <th>Số tiền</th><th>Thời gian</th><th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loadingPayments">
+                <td colspan="6" class="loading">Đang tải...</td>
+              </tr>
+              <tr v-else-if="!payments.length">
+                <td colspan="6" class="loading">Không có dữ liệu</td>
+              </tr>
+              <tr v-for="p in payments" :key="p.id">
+                <td class="mono">#{{ p.id }}</td>
+                <td class="mono">#{{ p.bookingId }}</td>
+                <td><span :class="['badge', `badge-gw-${p.gateway.toLowerCase()}`]">{{ p.gateway }}</span></td>
+                <td class="mono">{{ formatPrice(p.amount) }}đ</td>
+                <td class="mono">{{ p.paidAt ? formatDateTime(p.paidAt) : '—' }}</td>
+                <td><span :class="['badge', `badge-pay-${p.status.toLowerCase()}`]">{{ p.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, RouterLink } from 'vue-router'
+import { useAuthStore } from '../stores/authStore'
+import api from '../services/api'
+
+const router = useRouter()
+const auth   = useAuthStore()
+
+const activeTab = ref('trips')
+const tabs = [
+  { key: 'trips',    label: '🚌 Chuyến xe' },
+  { key: 'bookings', label: '🎫 Đặt vé' },
+  { key: 'users',    label: '👤 Người dùng' },
+  { key: 'payments', label: '💳 Thanh toán' },
+]
+
+// Data
+const trips    = ref([])
+const bookings = ref([])
+const users    = ref([])
+const payments = ref([])
+
+// Loading
+const loading         = ref(false)
+const loadingBookings = ref(false)
+const loadingUsers    = ref(false)
+const loadingPayments = ref(false)
+
+// Filters
+const tripFilter    = ref('')
+const bookingFilter = ref('')
+const userFilter    = ref('')
+
+// Stats
+const stats = computed(() => [
+  { label: 'Chuyến xe',  value: trips.value.length },
+  { label: 'Đơn đặt vé', value: bookings.value.length },
+  { label: 'Người dùng', value: users.value.length },
+  { label: 'Doanh thu',  value: formatPrice(
+      payments.value
+        .filter(p => p.status === 'SUCCESS')
+        .reduce((sum, p) => sum + Number(p.amount), 0)
+    ) + 'đ'
+  },
+])
+
+const filteredTrips = computed(() =>
+  tripFilter.value
+    ? trips.value.filter(t => t.status === tripFilter.value)
+    : trips.value
+)
+
+const filteredBookings = computed(() =>
+  bookingFilter.value
+    ? bookings.value.filter(b => b.status === bookingFilter.value)
+    : bookings.value
+)
+
+const filteredUsers = computed(() =>
+  userFilter.value
+    ? users.value.filter(u => u.role === userFilter.value)
+    : users.value
+)
+
+onMounted(() => {
+  loadTrips()
+  loadBookings()
+  loadUsers()
+  loadPayments()
+})
+
+async function loadTrips() {
+  loading.value = true
+  try {
+    // Lấy tất cả trips qua search với params rộng
+    const res = await api.get('/admin/trips')
+    trips.value = res.data
+  } catch {
+    // Fallback: dùng search với ngày hôm nay nếu chưa có admin API
+    trips.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadBookings() {
+  loadingBookings.value = true
+  try {
+    const res = await api.get('/admin/bookings')
+    bookings.value = res.data
+  } catch {
+    bookings.value = []
+  } finally {
+    loadingBookings.value = false
+  }
+}
+
+async function loadUsers() {
+  loadingUsers.value = true
+  try {
+    const res = await api.get('/admin/users')
+    users.value = res.data
+  } catch {
+    users.value = []
+  } finally {
+    loadingUsers.value = false
+  }
+}
+
+async function loadPayments() {
+  loadingPayments.value = true
+  try {
+    const res = await api.get('/admin/payments')
+    payments.value = res.data
+  } catch {
+    payments.value = []
+  } finally {
+    loadingPayments.value = false
+  }
+}
+
+function logout() {
+  auth.logout()
+  router.push('/login')
+}
+
+function formatPrice(p) {
+  return parseInt(p || 0).toLocaleString('vi-VN')
+}
+
+function formatDateTime(dt) {
+  if (!dt) return '—'
+  return new Date(dt).toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  })
+}
+
+function formatDate(dt) {
+  if (!dt) return '—'
+  return new Date(dt).toLocaleDateString('vi-VN')
+}
+</script>
+
+<style scoped>
+.admin-page { min-height: 100vh; background: #f5f2ec; font-family: 'DM Sans', sans-serif; }
+
+.navbar {
+  background: #0d0d0d;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 60px;
+  position: sticky; top: 0; z-index: 100;
+}
+.nav-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem; color: #e85d2f; letter-spacing: 2px; text-decoration: none;
+}
+.nav-links { display: flex; gap: 0.25rem; }
+.tab-btn {
+  background: none; border: none; color: #aaa;
+  font-size: 0.85rem; font-weight: 500;
+  padding: 0.4rem 0.9rem; border-radius: 4px;
+  cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.tab-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.tab-btn.active { color: #e85d2f; background: rgba(232,93,47,0.1); }
+.nav-user { display: flex; align-items: center; gap: 0.75rem; font-size: 0.82rem; color: #ccc; }
+.role-badge {
+  font-size: 0.7rem; font-weight: 600; padding: 0.2rem 0.6rem;
+  border-radius: 10px; background: rgba(255,255,255,0.08); color: #e85d2f;
+}
+.btn-logout {
+  background: none; border: 1px solid #444; color: #888;
+  padding: 0.25rem 0.7rem; border-radius: 4px; cursor: pointer;
+  font-size: 0.78rem; transition: all 0.15s;
+}
+.btn-logout:hover { border-color: #e85d2f; color: #e85d2f; }
+
+.stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1px; background: #d4cfc6;
+  border-bottom: 1px solid #d4cfc6;
+}
+.stat-card {
+  background: #fff; padding: 1.25rem 1.5rem;
+  display: flex; flex-direction: column; gap: 0.3rem;
+}
+.stat-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem; color: #e85d2f; line-height: 1;
+}
+.stat-label {
+  font-size: 0.75rem; color: #7a7468;
+  font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+.content { padding: 1.5rem 2rem; }
+
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem; letter-spacing: 1px;
+}
+.filter-bar select {
+  border: 1.5px solid #d4cfc6; border-radius: 7px;
+  padding: 0.5rem 0.85rem; font-size: 0.85rem;
+  color: #0d0d0d; background: #f5f2ec; outline: none; cursor: pointer;
+}
+
+.table-wrap {
+  background: #fff; border: 1px solid #d4cfc6;
+  border-radius: 10px; overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; }
+thead { background: #0d0d0d; }
+thead th {
+  padding: 0.75rem 1rem; text-align: left;
+  font-size: 0.7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.8px; color: #888;
+}
+tbody tr { border-bottom: 1px solid #f0ede8; transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #faf9f7; }
+tbody td { padding: 0.8rem 1rem; font-size: 0.875rem; }
+
+.mono { font-family: 'DM Mono', monospace; font-size: 0.8rem; color: #7a7468; }
+.loading { text-align: center; padding: 2rem; color: #7a7468; font-size: 0.85rem; }
+
+.badge {
+  display: inline-block; padding: 0.2rem 0.6rem;
+  border-radius: 20px; font-size: 0.7rem; font-weight: 600;
+}
+.badge-open      { background: #d4edda; color: #155724; }
+.badge-pending   { background: #fff3cd; color: #856404; }
+.badge-confirmed { background: #d1ecf1; color: #0c5460; }
+.badge-cancelled { background: #f8d7da; color: #721c24; }
+.badge-completed { background: #e2e3e5; color: #383d41; }
+.badge-role-customer { background: #e8f4fd; color: #1a6fa8; }
+.badge-role-driver   { background: #fff8e1; color: #8a6200; }
+.badge-role-admin    { background: #fce8e8; color: #a82020; }
+.badge-gw-vnpay { background: #e8f0fe; color: #1a56db; }
+.badge-gw-momo  { background: #fce8f5; color: #a8208a; }
+.badge-gw-card  { background: #e8fce8; color: #1a8a1a; }
+.badge-pay-success  { background: #d4edda; color: #155724; }
+.badge-pay-pending  { background: #fff3cd; color: #856404; }
+.badge-pay-failed   { background: #f8d7da; color: #721c24; }
+.badge-pay-refunded { background: #e2e3e5; color: #383d41; }
+</style>

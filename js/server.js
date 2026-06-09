@@ -25,6 +25,9 @@ startUnlocker();
 const paymentRoutes = require('./routes/payments');
 app.use('/api/payments', paymentRoutes);
 
+const ticketRoutes = require('./routes/tickets')
+app.use('/api/tickets', ticketRoutes)
+
 const pool = new Pool({
   host:     process.env.DB_HOST,
   port:     parseInt(process.env.DB_PORT),

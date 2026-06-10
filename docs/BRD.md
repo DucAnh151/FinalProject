@@ -28,7 +28,7 @@ Phương thức đặt vé xe khách truyền thống (gọi điện hoặc mua 
 | BO-01 | Trang landing giới thiệu nhà xe, tuyến phổ biến, ưu đãi | Cao | MVP |
 | BO-02 | Tìm kiếm chuyến theo điểm đi, điểm đến, ngày khởi hành | Cao | MVP |
 | BO-03 | Sơ đồ ghế động, chọn ghế thời gian thực | Cao | MVP |
-| BO-04 | Đặt vé + tạm giữ chỗ 10 phút | Cao | MVP |
+| BO-04 | Đặt vé + tạm giữ chỗ 5 phút | Cao | MVP |
 | BO-05 | Thanh toán đa phương thức: Ví, Tiền mặt, Online mock | Cao | MVP |
 | BO-06 | Vé điện tử QR Code | Cao | MVP |
 | BO-07 | Hủy vé, tính phí 10% | Cao | MVP |
@@ -61,10 +61,10 @@ Phương thức đặt vé xe khách truyền thống (gọi điện hoặc mua 
 - Quét QR check-in hành khách
 - Confirm thanh toán tiền mặt
 - Đặt vé hộ khách (khi khách gọi hotline)
-- Đánh dấu chuyến hoàn thành
+- Đánh dấu chuyến hoàn thành khi đến nơi
 
 ### ADMIN (Quản trị viên)
-- CRUD Users (tạo, sửa, khóa tài khoản)
+- CRUD Users (xem, tạo, sửa, khóa tài khoản)
 - CRUD Operators (nhà xe + ảnh + mô tả)
 - CRUD Vehicles (xe + loại xe)
 - CRUD Routes (tuyến đường + điểm dừng)
@@ -73,7 +73,7 @@ Phương thức đặt vé xe khách truyền thống (gọi điện hoặc mua 
 - Quản lý Tuyến phổ biến
 - Xem thống kê doanh thu theo ngày/tháng
 - Xem tất cả bookings, payments
-
+- Xem tất cả những thông tin của user, driver
 ---
 
 ## 4. Quy trình nghiệp vụ
@@ -82,14 +82,14 @@ Phương thức đặt vé xe khách truyền thống (gọi điện hoặc mua 
 
 ```
 Xem Landing → Đăng nhập → Tìm kiếm →
-Chọn chuyến → Chọn ghế (lock 10 phút) →
+Chọn chuyến → Chọn ghế (lock 5 phút) →
 Nhập thông tin hành khách →
 Xác nhận thông tin + cảnh báo hủy 10% →
 Chọn phương thức thanh toán →
   [Ví] → Nhập PIN → OTP → Trừ ví → CONFIRMED
   [Tiền mặt] → CASH_PENDING → Driver confirm → CONFIRMED
   [Online Mock] → Nhập PIN → OTP → CONFIRMED
-Nhận vé QR → Lên xe → Driver quét QR
+Nhận vé QR → Lên xe → Driver quét QR → Xác nhận đến nơi → Đánh giá sau chuyến đi
 ```
 
 ### 4.2 Luồng đặt hộ (DRIVER)
@@ -114,7 +114,7 @@ Nhập PIN → Nhập OTP →
 
 | Mã | Quy tắc | Chi tiết |
 |----|---------|---------|
-| BR-01 | Seat Lock | Chọn ghế → LOCKED 10 phút. Hết hạn → tự nhả về AVAILABLE |
+| BR-01 | Seat Lock | Chọn ghế → LOCKED 3 phút. Hết hạn → tự nhả về AVAILABLE |
 | BR-02 | Giới hạn vé | Tối đa 5 ghế/lần đặt |
 | BR-03 | Chống double booking | Database Transaction + SELECT FOR UPDATE |
 | BR-04 | Phí hủy vé | Hủy bất kỳ lúc nào: tính phí **10%**, hoàn **90%** |

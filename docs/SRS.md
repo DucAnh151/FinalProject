@@ -142,7 +142,7 @@ GET /api/landing/operators
 - Nhập thông tin từng hành khách (tên, SĐT)
 - Checkbox "Tôi là người đi" → tự điền từ tài khoản
 - Chọn điểm đón/trả từ route_stops
-- Countdown 10 phút seat lock
+- Countdown 5 phút seat lock
 - Cảnh báo: "Hủy vé sẽ mất 10% phí"
 
 ### REQ-06: Payment
@@ -225,7 +225,7 @@ GET /api/landing/operators
 ## 5. Cấu trúc Frontend
 
 ```
-frontend/src/
+frontend/src/ 
 ├── views/
 │   ├── LandingView.vue       ← Trang chủ công khai
 │   ├── LoginView.vue         ← Đăng nhập + Đăng ký

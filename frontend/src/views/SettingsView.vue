@@ -6,9 +6,17 @@
         <RouterLink v-if="!auth.isAdmin" to="/home">Trang chủ</RouterLink>
         <RouterLink v-if="!auth.isAdmin" to="/my-tickets">Vé của tôi</RouterLink>
         <RouterLink v-if="auth.isAdmin" to="/admin">Quản trị</RouterLink>
-        <RouterLink to="/settings">Cài đặt</RouterLink>
       </div>
-      <button class="btn-logout" @click="logout">Đăng xuất</button>
+      <div class="nav-user">
+        <div class="user-trigger" @click.stop="showUserDropdown = !showUserDropdown">
+          <span class="role-badge">{{ auth.user?.role }}</span>
+          <span class="username">{{ auth.user?.fullName || auth.user?.email }} ▼</span>
+        </div>
+        <div v-if="showUserDropdown" class="dropdown-menu">
+          <RouterLink to="/settings" class="dropdown-item">⚙ Cài đặt tài khoản</RouterLink>
+          <button class="dropdown-item btn-logout-item" @click="logout">🚪 Đăng xuất</button>
+        </div>
+      </div>
     </nav>
 
     <main class="content">
@@ -117,7 +125,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import api from '../services/api'
@@ -132,6 +140,20 @@ const profile = ref({
   phone: auth.user?.phone || '',
   email: auth.user?.email || '',
   avatarUrl: auth.user?.avatarUrl || '',
+})
+
+const showUserDropdown = ref(false)
+
+function closeDropdown() {
+  showUserDropdown.value = false
+}
+
+onMounted(() => {
+  window.addEventListener('click', closeDropdown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeDropdown)
 })
 
 const pin = ref('')
@@ -301,12 +323,73 @@ function formatPrice(value) {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.btn-logout {
-  color: #aaa;
-  background: transparent;
-  border: 1px solid #444;
+.nav-user {
+  position: relative;
+  font-size: 0.82rem;
+  color: #ccc;
+}
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
   border-radius: 6px;
-  padding: 7px 12px;
+  transition: background 0.15s;
+}
+.user-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.username {
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.role-badge {
+  font-size: 0.7rem; font-weight: 600;
+  padding: 0.2rem 0.6rem; border-radius: 10px;
+  background: rgba(255,255,255,0.08); color: #e85d2f;
+}
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  min-width: 170px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem 0;
+  z-index: 150;
+}
+.dropdown-item {
+  color: #ccc;
+  text-decoration: none;
+  font-size: 0.82rem;
+  padding: 0.6rem 1rem;
+  text-align: left;
+  background: none;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.btn-logout-item {
+  border-top: 1px solid #2d2d2d;
+  color: #e85d2f;
+}
+.btn-logout-item:hover {
+  background: rgba(232, 93, 47, 0.08);
+  color: #e85d2f;
 }
 
 .content {

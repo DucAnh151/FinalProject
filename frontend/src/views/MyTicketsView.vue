@@ -6,12 +6,16 @@
       <div class="nav-links">
         <RouterLink to="/">Trang chủ</RouterLink>
         <RouterLink to="/my-tickets">Vé của tôi</RouterLink>
-        <RouterLink to="/settings">Cài đặt</RouterLink>
       </div>
       <div class="nav-user">
-        <span class="role-badge">{{ auth.user?.role }}</span>
-        <span>{{ auth.user?.fullName || auth.user?.email }}</span>
-        <button class="btn-logout" @click="logout">Đăng xuất</button>
+        <div class="user-trigger" @click.stop="showUserDropdown = !showUserDropdown">
+          <span class="role-badge">{{ auth.user?.role }}</span>
+          <span class="username">{{ auth.user?.fullName || auth.user?.email }} ▼</span>
+        </div>
+        <div v-if="showUserDropdown" class="dropdown-menu">
+          <RouterLink to="/settings" class="dropdown-item">⚙ Cài đặt tài khoản</RouterLink>
+          <button class="dropdown-item btn-logout-item" @click="logout">🚪 Đăng xuất</button>
+        </div>
       </div>
     </nav>
 
@@ -193,7 +197,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import api from '../services/api'
@@ -207,6 +211,7 @@ const activeFilter    = ref('ALL')
 const selectedBooking = ref(null)
 const cancelling      = ref(false)
 const cancelError     = ref('')
+const showUserDropdown = ref(false)
 
 const filters = [
   { value: 'ALL',       label: 'Tất cả' },
@@ -220,8 +225,17 @@ const filteredBookings = computed(() => {
   return bookings.value.filter(b => b.status === activeFilter.value)
 })
 
+function closeDropdown() {
+  showUserDropdown.value = false
+}
+
 onMounted(async () => {
+  window.addEventListener('click', closeDropdown)
   await loadBookings()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeDropdown)
 })
 
 async function loadBookings() {
@@ -344,18 +358,74 @@ function logout() {
 }
 .nav-links a:hover { color: #fff; background: rgba(255,255,255,0.08); }
 .nav-links a.router-link-exact-active { color: #e85d2f; }
-.nav-user { display: flex; align-items: center; gap: 0.75rem; font-size: 0.82rem; color: #ccc; }
+.nav-user {
+  position: relative;
+  font-size: 0.82rem;
+  color: #ccc;
+}
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.user-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.username {
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
 .role-badge {
   font-size: 0.7rem; font-weight: 600;
   padding: 0.2rem 0.6rem; border-radius: 10px;
   background: rgba(255,255,255,0.08); color: #e85d2f;
 }
-.btn-logout {
-  background: none; border: 1px solid #444; color: #888;
-  padding: 0.25rem 0.7rem; border-radius: 4px;
-  cursor: pointer; font-size: 0.78rem; transition: all 0.15s;
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  min-width: 170px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem 0;
+  z-index: 150;
 }
-.btn-logout:hover { border-color: #e85d2f; color: #e85d2f; }
+.dropdown-item {
+  color: #ccc;
+  text-decoration: none;
+  font-size: 0.82rem;
+  padding: 0.6rem 1rem;
+  text-align: left;
+  background: none;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.btn-logout-item {
+  border-top: 1px solid #2d2d2d;
+  color: #e85d2f;
+}
+.btn-logout-item:hover {
+  background: rgba(232, 93, 47, 0.08);
+  color: #e85d2f;
+}
 
 /* CONTENT */
 .content { padding: 1.75rem 2.5rem; max-width: 900px; }

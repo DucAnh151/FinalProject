@@ -33,6 +33,14 @@
             <div class="passenger-header">
               <span class="seat-tag">{{ seat.seatName }}</span>
               <span class="passenger-num">Hành khách {{ idx + 1 }}</span>
+              <label class="self-passenger-label">
+                <input
+                  type="checkbox"
+                  v-model="passengers[idx].isSelf"
+                  @change="toggleSelf(idx)"
+                />
+                Tôi là người đi
+              </label>
             </div>
             <div class="field-row">
               <div class="field">
@@ -155,9 +163,11 @@
 // BookingView: Handles passenger details entry and route stops selection
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
+import { useAuthStore } from '../stores/authStore'
 import api from '../services/api'
 
 const router = useRouter()
+const auth   = useAuthStore()
 
 const booking      = ref(null)
 const passengers   = ref([])
@@ -194,7 +204,7 @@ onMounted(async () => {
   booking.value = JSON.parse(saved)
 
   // Khởi tạo form passengers
-  passengers.value = booking.value.seats.map(() => ({ name: '', phone: '' }))
+  passengers.value = booking.value.seats.map(() => ({ name: '', phone: '', isSelf: false }))
 
   // Tính thời gian còn lại từ expiresAt
   if (booking.value.expiresAt) {
@@ -214,6 +224,23 @@ onMounted(async () => {
   // Load stops
   await loadStops()
 })
+
+function toggleSelf(idx) {
+  if (passengers.value[idx].isSelf) {
+    // Uncheck other passengers' isSelf
+    passengers.value.forEach((p, i) => {
+      if (i !== idx) p.isSelf = false
+    })
+
+    // Fill info from logged in user
+    passengers.value[idx].name = auth.user?.fullName || ''
+    passengers.value[idx].phone = auth.user?.phone || ''
+  } else {
+    // Clear info if unchecked
+    passengers.value[idx].name = ''
+    passengers.value[idx].phone = ''
+  }
+}
 
 onUnmounted(() => {
   if (countdown) clearInterval(countdown)
@@ -377,6 +404,21 @@ function formatPrice(p) {
 .passenger-header {
   display: flex; align-items: center; gap: 0.75rem;
   margin-bottom: 1rem;
+}
+.self-passenger-label {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7a7468;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  user-select: none;
+}
+.self-passenger-label input {
+  cursor: pointer;
+  accent-color: #e85d2f;
 }
 .seat-tag {
   background: #e85d2f; color: #fff;

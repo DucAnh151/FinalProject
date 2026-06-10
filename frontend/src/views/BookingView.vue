@@ -435,7 +435,7 @@ function formatPrice(p) {
 
 .summary-divider { height: 1px; background: #ede9e1; margin: 0.75rem 0; }
 
-.summary-seats { }
+/* .summary-seats { } */
 .s-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #7a7468; margin-bottom: 0.5rem; }
 .seat-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .seat-tag-sm {

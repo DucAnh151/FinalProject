@@ -118,14 +118,10 @@
                 :key="idx"
                 class="qr-item"
               >
-                <div class="qr-seat">{{ seat }}</div>
-                <!-- QR render bằng canvas -->
-                <canvas
-                  :ref="el => setQrCanvas(el, idx)"
-                  class="qr-canvas"
-                  width="160"
-                  height="160"
-                ></canvas>
+                <div class="qr-seat">Ghế {{ seat }}</div>
+                <div class="qr-box">
+                  <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(getQrCode(selectedBooking.id, idx))}`" alt="QR Vé" class="qr-img" />
+                </div>
                 <div class="qr-code-text">
                   {{ getQrCode(selectedBooking.id, idx) }}
                 </div>
@@ -153,6 +149,21 @@
               <span class="info-val price-highlight">{{ formatPrice(selectedBooking.totalAmount) }}</span>
             </div>
           </div>
+
+          <!-- Nút hủy vé (nếu PENDING hoặc CONFIRMED) -->
+          <div v-if="selectedBooking.status === 'CONFIRMED' || selectedBooking.status === 'PENDING'" class="cancel-section">
+            <div v-if="selectedBooking.status === 'CONFIRMED'" class="refund-note">
+              ⚠️ Hủy vé sẽ được hoàn lại <strong>90%</strong> số tiền (tương đương <strong>{{ formatPrice(selectedBooking.totalAmount * 0.9) }}</strong>) vào ví điện tử.
+            </div>
+            <button
+              class="btn-cancel-ticket"
+              :disabled="cancelling"
+              @click="cancelBooking(selectedBooking)"
+            >
+              {{ cancelling ? 'Đang hủy...' : 'HỦY VÉ & HOÀN TIỀN' }}
+            </button>
+            <div v-if="cancelError" class="alert-error">{{ cancelError }}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -160,7 +171,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import api from '../services/api'
@@ -172,10 +183,8 @@ const bookings        = ref([])
 const loading         = ref(true)
 const activeFilter    = ref('ALL')
 const selectedBooking = ref(null)
-
-// Map bookingId → [qrCode, ...] từ tickets
-// Vì API /bookings/my không trả về qr_code, dùng format giống backend sinh ra
-const qrMap = ref({})
+const cancelling      = ref(false)
+const cancelError     = ref('')
 
 const filters = [
   { value: 'ALL',       label: 'Tất cả' },
@@ -207,53 +216,38 @@ async function loadBookings() {
 
 function openDetail(booking) {
   selectedBooking.value = booking
-  // Render QR sau khi modal mount
-  nextTick(() => renderAllQr(booking))
+  cancelError.value = ''
 }
 
-// Render QR lên canvas dùng thuật toán QR đơn giản
-// Dùng qrcode.js nếu đã cài: npm install qrcode
-// Ở đây dùng dynamic import để không block nếu chưa cài
-async function renderQr(canvas, text) {
-  if (!canvas) return
+async function cancelBooking(booking) {
+  if (!confirm('Bạn có chắc chắn muốn hủy đơn đặt vé này không?')) return
+
+  cancelling.value = true
+  cancelError.value = ''
   try {
-    const QRCode = (await import('qrcode')).default
-    await QRCode.toCanvas(canvas, text, {
-      width: 160,
-      margin: 2,
-      color: { dark: '#0d0d0d', light: '#ffffff' }
-    })
-  } catch {
-    // Fallback: vẽ placeholder nếu chưa cài qrcode
-    const ctx = canvas.getContext('2d')
-    ctx.fillStyle = '#f5f2ec'
-    ctx.fillRect(0, 0, 160, 160)
-    ctx.fillStyle = '#7a7468'
-    ctx.font = '11px DM Sans, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('QR Code', 80, 75)
-    ctx.fillText(text.slice(0, 20), 80, 92)
+    const res = await api.post(`/bookings/${booking.id}/cancel`, { userId: auth.user.id })
+    if (res.data.success) {
+      alert('Hủy vé thành công! Số tiền hoàn lại đã được cộng vào ví của bạn (nếu có).')
+      
+      // Update local wallet balance if CONFIRMED booking was refunded
+      if (booking.status === 'CONFIRMED') {
+        const refunded = Math.floor(booking.totalAmount * 0.9)
+        const updatedUser = { ...auth.user }
+        updatedUser.walletBalance = (updatedUser.walletBalance || 0) + refunded
+        auth.setUser(updatedUser)
+      }
+
+      selectedBooking.value = null
+      await loadBookings()
+    }
+  } catch (e) {
+    cancelError.value = e.response?.data?.error || 'Hủy vé thất bại'
+  } finally {
+    cancelling.value = false
   }
 }
 
-const canvasRefs = ref([])
-
-function setQrCanvas(el, idx) {
-  if (el) canvasRefs.value[idx] = el
-}
-
-function renderAllQr(booking) {
-  canvasRefs.value = []
-  nextTick(() => {
-    booking.seats.forEach((_, idx) => {
-      const canvas = canvasRefs.value[idx]
-      const qrText = getQrCode(booking.id, idx)
-      renderQr(canvas, qrText)
-    })
-  })
-}
-
-// QR code text — format giống backend: PAM-{bookingId}-{seatIdx}
+// QR code text — format giống backend: PAM-{bookingId}-SEAT{idx+1}
 function getQrCode(bookingId, idx) {
   return `PAM-${bookingId}-SEAT${idx + 1}`
 }
@@ -480,14 +474,28 @@ function logout() {
   background: #e85d2f; color: #fff;
   padding: 0.2rem 0.7rem; border-radius: 20px;
 }
-.qr-canvas { border: 1px solid #d4cfc6; border-radius: 8px; }
+.qr-box {
+  background: #fff;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #d4cfc6;
+  display: inline-block;
+  margin: 0.25rem 0;
+}
+.qr-img {
+  width: 140px;
+  height: 140px;
+  display: block;
+}
 .qr-code-text {
   font-size: 0.62rem; color: #7a7468;
   font-family: 'DM Mono', monospace;
   max-width: 160px; text-align: center; word-break: break-all;
 }
 
-.info-section {}
+.info-section {
+  margin-bottom: 1.5rem;
+}
 .info-row {
   display: flex; justify-content: space-between;
   padding: 0.6rem 0; border-bottom: 1px solid #f0ede8;
@@ -498,4 +506,49 @@ function logout() {
 .info-val { font-weight: 500; }
 .mono { font-family: 'DM Mono', monospace; font-size: 0.8rem; }
 .price-highlight { color: #e85d2f; font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; }
+
+/* Cancel Booking */
+.cancel-section {
+  border-top: 1px dashed #d4cfc6;
+  padding-top: 1.25rem;
+  margin-top: 1.25rem;
+}
+.refund-note {
+  background: #fdf0ef;
+  color: #c0392b;
+  border: 1px solid #f5c6c2;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.82rem;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+.btn-cancel-ticket {
+  width: 100%;
+  background: #c0392b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-cancel-ticket:hover:not(:disabled) {
+  background: #a93226;
+}
+.btn-cancel-ticket:disabled {
+  background: #d4cfc6;
+  cursor: not-allowed;
+}
+.alert-error {
+  background: #fdf0ef;
+  color: #c0392b;
+  border: 1px solid #f5c6c2;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.82rem;
+  margin-top: 0.75rem;
+}
 </style>

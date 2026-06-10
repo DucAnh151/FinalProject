@@ -265,6 +265,33 @@ router.post('/:id/cancel', async (req, res) => {
 
       const seatIds = booking.booking_seats.map(bs => bs.seat_id);
 
+      // 90% refund if booking was CONFIRMED and paid
+      const successPayment = booking.payments.find(p => p.status === 'SUCCESS');
+      if (booking.status === 'CONFIRMED' && successPayment) {
+        const refundAmount = BigInt(Math.floor(Number(successPayment.amount) * 0.9));
+        const user = await tx.users.findUnique({
+          where: { id: BigInt(userId) }
+        });
+        if (user) {
+          const newBalance = BigInt(user.wallet_balance || 0) + refundAmount;
+          await tx.users.update({
+            where: { id: BigInt(userId) },
+            data: { wallet_balance: newBalance }
+          });
+
+          await tx.wallet_transactions.create({
+            data: {
+              user_id: BigInt(userId),
+              type: 'REFUND',
+              amount: refundAmount,
+              balance_after: newBalance,
+              description: `Hoàn tiền 90% hủy vé #${booking.id} (${successPayment.gateway})`,
+              booking_id: booking.id
+            }
+          });
+        }
+      }
+
       await tx.tickets.updateMany({
         where: { booking_id: booking.id },
         data:  { status: 'CANCELLED' }

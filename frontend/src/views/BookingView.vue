@@ -152,6 +152,7 @@
 </template>
 
 <script setup>
+// BookingView: Handles passenger details entry and route stops selection
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import api from '../services/api'

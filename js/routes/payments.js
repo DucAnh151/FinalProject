@@ -40,6 +40,11 @@ router.post('/initiate', async (req, res) => {
 
     if (!user)
       return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
+      
+    if (gateway === 'WALLET' && Number(user.wallet_balance || 0) < Number(booking.total_amount)) {
+      return res.status(400).json({ error: 'Số dư ví không đủ. Vui lòng nạp thêm tiền.' });
+    }
+
     if (!user.payment_pin)
       return res.status(400).json({ error: 'Bạn chưa cài mật khẩu thanh toán' });
 
@@ -151,6 +156,33 @@ router.post('/confirm', async (req, res) => {
       if (!booking.booking_seats.length)
         throw new Error('PASSENGERS_MISSING');
 
+      // Nếu thanh toán bằng ví điện tử WALLET, thực hiện trừ tiền và lưu giao dịch
+      if (payment.gateway === 'WALLET') {
+        const user = await tx.users.findUnique({
+          where: { id: BigInt(userId) }
+        });
+        if (Number(user.wallet_balance || 0) < Number(payment.amount)) {
+          throw new Error('INSUFFICIENT_BALANCE');
+        }
+        
+        const newBalance = BigInt(user.wallet_balance) - BigInt(payment.amount);
+        await tx.users.update({
+          where: { id: BigInt(userId) },
+          data: { wallet_balance: newBalance }
+        });
+
+        await tx.wallet_transactions.create({
+          data: {
+            user_id: BigInt(userId),
+            type: 'PAYMENT',
+            amount: BigInt(payment.amount),
+            balance_after: newBalance,
+            description: `Thanh toán đơn đặt vé #${booking.id}`,
+            booking_id: booking.id
+          }
+        });
+      }
+
       // Cập nhật payment → SUCCESS
       await tx.payments.update({
         where: { id: payment.id },
@@ -211,6 +243,8 @@ router.post('/confirm', async (req, res) => {
     });
 
   } catch (e) {
+    if (e.message === 'INSUFFICIENT_BALANCE')
+      return res.status(400).json({ error: 'Số dư ví không đủ' });
     if (e.message === 'PAYMENT_NOT_FOUND')
       return res.status(404).json({ error: 'Không tìm thấy giao dịch thanh toán' });
     if (e.message === 'PAYMENT_NOT_PENDING')
@@ -246,6 +280,62 @@ router.post('/set-pin', async (req, res) => {
     });
     res.json({ success: true, message: 'Đã cài mật khẩu thanh toán' });
   } catch (e) {
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
+// POST /api/payments/recharge — nạp tiền giả lập vào ví
+router.post('/recharge', async (req, res) => {
+  const { userId, amount, pin } = req.body;
+  if (!userId || !amount || amount <= 0)
+    return res.status(400).json({ error: 'Thiếu thông tin nạp tiền' });
+
+  try {
+    const user = await prisma.users.findUnique({
+      where: { id: BigInt(userId) }
+    });
+
+    if (!user)
+      return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
+
+    // Verify PIN if set
+    if (user.payment_pin) {
+      if (!pin) {
+        return res.status(400).json({ error: 'Vui lòng nhập mã PIN thanh toán' });
+      }
+      const pinMatch = await bcrypt.compare(pin, user.payment_pin);
+      if (!pinMatch)
+        return res.status(401).json({ error: 'Mã PIN thanh toán không đúng' });
+    }
+
+    const newBalance = BigInt(user.wallet_balance || 0) + BigInt(amount);
+    
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const u = await tx.users.update({
+        where: { id: BigInt(userId) },
+        data: { wallet_balance: newBalance }
+      });
+
+      await tx.wallet_transactions.create({
+        data: {
+          user_id: BigInt(userId),
+          type: 'DEPOSIT',
+          amount: BigInt(amount),
+          balance_after: newBalance,
+          description: 'Nạp tiền vào ví giả lập'
+        }
+      });
+
+      return u;
+    });
+
+    res.json({
+      success: true,
+      walletBalance: Number(updatedUser.wallet_balance),
+      message: `Đã nạp thành công ${amount.toLocaleString('vi-VN')}đ vào ví!`
+    });
+  } catch (e) {
+    console.error('Recharge error:', e);
     res.status(500).json({ error: 'Lỗi server' });
   }
 });

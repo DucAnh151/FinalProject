@@ -140,10 +140,13 @@
             <div class="success-title">THANH TOÁN THÀNH CÔNG</div>
             <div class="success-sub">Vé điện tử đã được phát hành</div>
 
-            <div class="ticket-list">
-              <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
-                <span class="ticket-label">Vé #{{ ticket.id }}</span>
-                <span class="ticket-qr">{{ ticket.qrCode }}</span>
+            <div class="ticket-list-cards">
+              <div v-for="ticket in tickets" :key="ticket.id" class="ticket-card-success">
+                <div class="ticket-header-success">MÃ VÉ: #{{ ticket.id }}</div>
+                <div class="qr-box">
+                  <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(ticket.qrCode)}`" alt="QR Vé" class="qr-img" />
+                </div>
+                <div class="ticket-qr-code">{{ ticket.qrCode }}</div>
               </div>
             </div>
 
@@ -193,7 +196,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import api from '../services/api'
@@ -203,7 +206,7 @@ const auth   = useAuthStore()
 
 const paymentData     = ref(null)
 const step            = ref(1)
-const selectedGateway = ref('VNPAY')
+const selectedGateway = ref('WALLET')
 const pin             = ref('')
 const otp             = ref('')
 const newPin          = ref('')
@@ -216,11 +219,12 @@ const pinSetMsg       = ref('')
 const pinSetOk        = ref(false)
 const errors          = ref({})
 
-const gateways = [
+const gateways = computed(() => [
+  { value: 'WALLET', name: `Ví điện tử (Số dư: ${formatPrice(auth.user?.walletBalance)})`, icon: '👛' },
   { value: 'VNPAY', name: 'VNPay',  icon: '🏦' },
   { value: 'MOMO',  name: 'MoMo',   icon: '💜' },
   { value: 'CARD',  name: 'Thẻ tín dụng', icon: '💳' },
-]
+])
 
 onMounted(() => {
   const saved = sessionStorage.getItem('payment_data')
@@ -292,6 +296,12 @@ async function confirmPayment() {
 
     tickets.value = res.data.tickets
     step.value    = 3
+
+    if (selectedGateway.value === 'WALLET') {
+      const updatedUser = { ...auth.user }
+      updatedUser.walletBalance = Math.max(0, updatedUser.walletBalance - paymentData.value.totalPrice)
+      auth.setUser(updatedUser)
+    }
 
     // Xóa session booking
     sessionStorage.removeItem('current_booking')
@@ -486,13 +496,48 @@ function formatPrice(p) {
   font-size: 1.8rem; letter-spacing: 1px; color: #0d0d0d;
 }
 .success-sub { font-size: 0.85rem; color: #7a7468; margin: 0.35rem 0 1.5rem; }
-.ticket-list { margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
-.ticket-item {
-  display: flex; justify-content: space-between; align-items: center;
-  background: #f5f2ec; padding: 0.6rem 1rem; border-radius: 8px;
+.ticket-list-cards {
+  margin-bottom: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  justify-content: center;
 }
-.ticket-label { font-size: 0.82rem; font-weight: 600; }
-.ticket-qr { font-size: 0.72rem; color: #7a7468; font-family: 'DM Mono', monospace; }
+.ticket-card-success {
+  background: #fdfbf7;
+  border: 1.5px solid #d4cfc6;
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+.ticket-header-success {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #7a7468;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px dashed #ede9e1;
+  padding-bottom: 0.4rem;
+}
+.qr-box {
+  background: #fff;
+  padding: 0.5rem;
+  border-radius: 6px;
+  display: inline-block;
+  margin: 0.5rem 0;
+  border: 1px solid #ede9e1;
+}
+.qr-img {
+  width: 120px;
+  height: 120px;
+  display: block;
+}
+.ticket-qr-code {
+  font-size: 0.68rem;
+  color: #7a7468;
+  font-family: 'DM Mono', monospace;
+  word-break: break-all;
+}
 
 /* SUMMARY */
 .summary-panel {

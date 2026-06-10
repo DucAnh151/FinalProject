@@ -34,12 +34,12 @@
 
           <div class="field">
             <label>Email hoặc Số điện thoại</label>
-            <input v-model="loginForm.identifier" type="text" placeholder="admin@pamtravel.vn"
+            <input v-model="loginForm.identifier" type="text" placeholder="abc@travel.vn"
               @keyup.enter="doLogin" />
           </div>
           <div class="field">
             <label>Mật khẩu</label>
-            <input v-model="loginForm.password" type="password" placeholder="••••••••"
+            <input v-model="loginForm.password" type="password" placeholder="••••••"
               @keyup.enter="doLogin" />
           </div>
 
@@ -51,7 +51,7 @@
           <div class="hint">
             <strong>Tài khoản thử nghiệm:</strong><br>
             admin@pamtravel.vn / admin123<br>
-            driver1@gmail.com / driver123<br>
+            driver1@travel.vn/ driver123<br>
             khach1@gmail.com / customer123
           </div>
         </div>
@@ -101,10 +101,11 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 
 const router   = useRouter()
+const route    = useRoute()
 const auth     = useAuthStore()
 const tab      = ref('login')
 const loading  = ref(false)
@@ -126,7 +127,7 @@ async function doLogin() {
   try {
     await auth.login(loginForm.value.identifier, loginForm.value.password)
     success.value = `Xin chào ${auth.user.fullName || auth.user.email}! Đang chuyển trang...`
-    setTimeout(() => router.push('/'), 800)
+    setTimeout(() => router.push(route.query.redirect || '/home'), 800)
   } catch (e) {
     error.value = e.response?.data?.error || 'Đăng nhập thất bại'
   } finally {

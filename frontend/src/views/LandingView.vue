@@ -1,0 +1,827 @@
+<template>
+  <div class="landing" :class="{ dark: darkMode }">
+    <PublicHeader
+      :dark="darkMode"
+      :locale="locale"
+      @toggle-theme="darkMode = !darkMode"
+      @toggle-locale="toggleLocale"
+    />
+
+    <main>
+      <section class="hero-section">
+        <div class="hero-bg" aria-hidden="true"></div>
+        <div class="hero-inner">
+          <div class="hero-copy reveal">
+            <p class="eyebrow">{{ t.eyebrow }}</p>
+            <h1>{{ t.heroTitle }}</h1>
+            <p class="hero-sub">{{ t.heroSub }}</p>
+          </div>
+
+          <form class="search-panel reveal" @submit.prevent="doSearch">
+            <div class="field">
+              <label>{{ t.origin }}</label>
+              <select v-model="form.originId">
+                <option value="">{{ t.chooseOrigin }}</option>
+                <option v-for="p in provinces" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>{{ t.destination }}</label>
+              <select v-model="form.destinationId">
+                <option value="">{{ t.chooseDestination }}</option>
+                <option v-for="p in provinces" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>{{ t.date }}</label>
+              <input v-model="form.departureDate" type="date" :min="today" />
+            </div>
+
+            <button class="search-btn" type="submit" :disabled="loading">
+              {{ loading ? t.searching : t.search }}
+            </button>
+          </form>
+
+          <p v-if="error" class="form-error">{{ error }}</p>
+        </div>
+      </section>
+
+      <section class="trust-section reveal" aria-label="Trust signals">
+        <div v-for="item in trustCards" :key="item.label" class="trust-item">
+          <span class="trust-icon">{{ item.icon }}</span>
+          <strong>{{ formatMetric(item) }}</strong>
+          <span>{{ item.label }}</span>
+        </div>
+      </section>
+
+      <section id="routes" class="section">
+        <div class="section-head reveal">
+          <p>{{ t.routesEyebrow }}</p>
+          <h2>{{ t.routesTitle }}</h2>
+        </div>
+
+        <div class="route-grid">
+          <article v-for="route in popularRoutes" :key="route.id" class="route-card reveal">
+            <img :src="route.imageUrl || '/images/routes/ha-noi-da-nang.png'" :alt="route.description" />
+            <div class="route-body">
+              <h3>{{ route.origin }} → {{ route.destination }}</h3>
+              <p>{{ route.description }}</p>
+              <div class="route-meta">
+                <span>{{ formatPrice(route.basePrice) }}đ</span>
+                <button type="button" @click="searchRoute(route)">{{ t.bookNow }}</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="operators" class="section operator-band">
+        <div class="section-head reveal">
+          <p>{{ t.operatorsEyebrow }}</p>
+          <h2>{{ t.operatorsTitle }}</h2>
+        </div>
+
+        <div class="operator-grid">
+          <article v-for="operator in operators" :key="operator.id" class="operator-card reveal">
+            <img :src="operator.logoUrl || '/images/operators/phuong-trang.png'" :alt="operator.name" />
+            <div>
+              <h3>{{ operator.name }}</h3>
+              <p>{{ operator.description || operator.hotline }}</p>
+              <span>{{ operator.rating || '4.8' }}★</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="steps" class="section">
+        <div class="section-head reveal">
+          <p>{{ t.stepsEyebrow }}</p>
+          <h2>{{ t.stepsTitle }}</h2>
+        </div>
+
+        <div class="steps">
+          <article v-for="step in steps" :key="step.title" class="step reveal">
+            <span>{{ step.icon }}</span>
+            <h3>{{ step.title }}</h3>
+            <p>{{ step.text }}</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="offers" class="section offers-section">
+        <div class="section-head reveal">
+          <p>{{ t.offersEyebrow }}</p>
+          <h2>{{ t.offersTitle }}</h2>
+        </div>
+
+        <div class="offer-grid">
+          <article v-for="banner in banners" :key="banner.id" class="offer-card reveal">
+            <img :src="banner.imageUrl || '/images/banners/phuong-trang-offer.png'" :alt="banner.title" />
+            <div>
+              <h3>{{ banner.title }}</h3>
+              <p>{{ t.offerSub }}</p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <PublicFooter :dark="darkMode" :locale="locale" />
+  </div>
+</template>
+
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import PublicFooter from '../components/PublicFooter.vue'
+import PublicHeader from '../components/PublicHeader.vue'
+import { useAuthStore } from '../stores/authStore'
+import api from '../services/api'
+
+const router = useRouter()
+const auth = useAuthStore()
+
+const locale = ref(sessionStorage.getItem('pam_locale') || 'vi')
+const darkMode = ref(sessionStorage.getItem('pam_theme') === 'dark')
+const provinces = ref([])
+const popularRoutes = ref([])
+const operators = ref([])
+const banners = ref([])
+const stats = ref({ trips: 1000, operators: 50, customers: 12000, rating: 4.8 })
+const displayed = ref({ trips: 0, operators: 0, customers: 0, rating: 0 })
+const loading = ref(false)
+const error = ref('')
+const today = new Date().toISOString().split('T')[0]
+
+const form = ref({
+  originId: '',
+  destinationId: '',
+  departureDate: today,
+})
+
+const copy = {
+  vi: {
+    eyebrow: 'Đặt vé xe khách liên tỉnh',
+    heroTitle: 'Đi đúng chuyến, ngồi đúng ghế, thanh toán an tâm.',
+    heroSub: 'PAM Travel giúp bạn tìm chuyến, chọn ghế theo sơ đồ thực tế và nhận vé QR trong một luồng đặt vé gọn gàng.',
+    origin: 'Điểm đi',
+    destination: 'Điểm đến',
+    date: 'Ngày đi',
+    chooseOrigin: 'Chọn tỉnh đi',
+    chooseDestination: 'Chọn tỉnh đến',
+    search: 'Tìm chuyến',
+    searching: 'Đang tìm...',
+    routesEyebrow: 'Tuyến được đặt nhiều',
+    routesTitle: 'Tuyến phổ biến',
+    operatorsEyebrow: 'Đối tác vận chuyển',
+    operatorsTitle: 'Nhà xe nổi bật',
+    stepsEyebrow: 'Quy trình',
+    stepsTitle: 'Đặt vé trong 4 bước',
+    offersEyebrow: 'Khuyến mãi',
+    offersTitle: 'Ưu đãi đang chạy',
+    offerSub: 'Áp dụng khi đặt vé qua PAM Travel.',
+    bookNow: 'Đặt ngay',
+    missing: 'Vui lòng chọn đầy đủ điểm đi, điểm đến và ngày đi.',
+    sameProvince: 'Điểm đi và điểm đến không được giống nhau.',
+    searchFailed: 'Không tìm được chuyến phù hợp.',
+    loginFirst: 'Đăng nhập để xem kết quả và chọn ghế.',
+  },
+  en: {
+    eyebrow: 'Intercity bus ticketing',
+    heroTitle: 'Find the right trip, choose your seat, pay with confidence.',
+    heroSub: 'PAM Travel helps passengers search routes, select seats from a live map, and receive QR tickets in one focused booking flow.',
+    origin: 'Origin',
+    destination: 'Destination',
+    date: 'Date',
+    chooseOrigin: 'Choose origin',
+    chooseDestination: 'Choose destination',
+    search: 'Search trips',
+    searching: 'Searching...',
+    routesEyebrow: 'Most booked',
+    routesTitle: 'Popular routes',
+    operatorsEyebrow: 'Transport partners',
+    operatorsTitle: 'Featured operators',
+    stepsEyebrow: 'Flow',
+    stepsTitle: 'Book in 4 steps',
+    offersEyebrow: 'Promotions',
+    offersTitle: 'Current offers',
+    offerSub: 'Available for bookings through PAM Travel.',
+    bookNow: 'Book now',
+    missing: 'Please choose origin, destination, and date.',
+    sameProvince: 'Origin and destination must be different.',
+    searchFailed: 'No matching trips found.',
+    loginFirst: 'Login to view results and choose seats.',
+  },
+}
+
+const t = computed(() => copy[locale.value] || copy.vi)
+
+const trustCards = computed(() => [
+  { icon: '⌁', label: locale.value === 'vi' ? 'chuyến xe' : 'trips', value: Math.max(stats.value.trips, 1000), suffix: '+' },
+  { icon: '◇', label: locale.value === 'vi' ? 'nhà xe' : 'operators', value: Math.max(stats.value.operators, 50), suffix: '+' },
+  { icon: '★', label: locale.value === 'vi' ? 'đánh giá' : 'rating', value: stats.value.rating || 4.8, suffix: '★', decimal: true },
+  { icon: '☎', label: locale.value === 'vi' ? 'hỗ trợ' : 'support', value: 24, suffix: '/7' },
+])
+
+const steps = computed(() => locale.value === 'vi'
+  ? [
+      { icon: '1', title: 'Tìm chuyến', text: 'Chọn điểm đi, điểm đến và ngày khởi hành.' },
+      { icon: '2', title: 'Chọn ghế', text: 'Xem sơ đồ ghế và giữ chỗ trong thời gian thanh toán.' },
+      { icon: '3', title: 'Thanh toán', text: 'Xác nhận bằng PIN và OTP trong môi trường demo.' },
+      { icon: '4', title: 'Nhận vé QR', text: 'Lưu vé điện tử để tài xế soát khi lên xe.' },
+    ]
+  : [
+      { icon: '1', title: 'Search', text: 'Pick origin, destination, and departure date.' },
+      { icon: '2', title: 'Choose seats', text: 'Use the seat map and hold seats during checkout.' },
+      { icon: '3', title: 'Pay', text: 'Confirm with PIN and OTP in the demo flow.' },
+      { icon: '4', title: 'Get QR ticket', text: 'Show the digital ticket when boarding.' },
+    ])
+
+onMounted(async () => {
+  await Promise.all([loadProvinces(), loadLandingData()])
+  setupReveal()
+  animateStats()
+})
+
+function toggleLocale() {
+  locale.value = locale.value === 'vi' ? 'en' : 'vi'
+  sessionStorage.setItem('pam_locale', locale.value)
+}
+
+async function loadProvinces() {
+  try {
+    const res = await api.get('/trips/provinces')
+    provinces.value = res.data
+    sessionStorage.setItem('provinces_cache', JSON.stringify(res.data))
+  } catch {
+    provinces.value = [
+      { id: 1, name: 'Hà Nội' },
+      { id: 2, name: 'Hồ Chí Minh' },
+      { id: 3, name: 'Đà Nẵng' },
+    ]
+  }
+}
+
+async function loadLandingData() {
+  try {
+    const [routesRes, operatorsRes, statsRes, bannersRes] = await Promise.all([
+      api.get('/landing/popular-routes'),
+      api.get('/landing/operators'),
+      api.get('/landing/stats'),
+      api.get('/landing/banners'),
+    ])
+    popularRoutes.value = routesRes.data
+    operators.value = operatorsRes.data
+    banners.value = bannersRes.data
+    stats.value = statsRes.data
+  } catch {
+    popularRoutes.value = fallbackRoutes()
+    operators.value = fallbackOperators()
+    banners.value = fallbackBanners()
+  }
+}
+
+async function doSearch() {
+  error.value = ''
+  if (!form.value.originId || !form.value.destinationId || !form.value.departureDate) {
+    error.value = t.value.missing
+    return
+  }
+  if (form.value.originId === form.value.destinationId) {
+    error.value = t.value.sameProvince
+    return
+  }
+
+  loading.value = true
+  try {
+    const res = await api.get('/trips/search', { params: form.value })
+    sessionStorage.setItem('search_results', JSON.stringify(res.data))
+    sessionStorage.setItem('search_form', JSON.stringify(form.value))
+
+    if (!auth.isLoggedIn) {
+      sessionStorage.setItem('pam_login_notice', t.value.loginFirst)
+      router.push({ path: '/login', query: { redirect: '/search' } })
+      return
+    }
+
+    router.push('/search')
+  } catch (e) {
+    error.value = e.response?.data?.error || t.value.searchFailed
+  } finally {
+    loading.value = false
+  }
+}
+
+function searchRoute(route) {
+  if (route.originId && route.destinationId) {
+    form.value.originId = route.originId
+    form.value.destinationId = route.destinationId
+  }
+  doSearch()
+}
+
+function setupReveal() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) entry.target.classList.add('is-visible')
+    })
+  }, { threshold: 0.16 })
+
+  document.querySelectorAll('.reveal').forEach((el) => observer.observe(el))
+}
+
+function animateStats() {
+  const duration = 900
+  const startedAt = performance.now()
+  const targets = {
+    trips: Math.max(stats.value.trips || 0, 1000),
+    operators: Math.max(stats.value.operators || 0, 50),
+    customers: Math.max(stats.value.customers || 0, 12000),
+    rating: stats.value.rating || 4.8,
+  }
+
+  function tick(now) {
+    const progress = Math.min((now - startedAt) / duration, 1)
+    displayed.value = {
+      trips: Math.round(targets.trips * progress),
+      operators: Math.round(targets.operators * progress),
+      customers: Math.round(targets.customers * progress),
+      rating: Number((targets.rating * progress).toFixed(1)),
+    }
+    if (progress < 1) requestAnimationFrame(tick)
+  }
+
+  requestAnimationFrame(tick)
+}
+
+function formatMetric(item) {
+  if (item.decimal) return `${displayed.value.rating.toFixed(1)}${item.suffix}`
+  const key = item.label.includes('nhà') || item.label.includes('operators') ? 'operators' : item.value === 24 ? null : 'trips'
+  const value = key ? displayed.value[key] : item.value
+  return `${Number(value).toLocaleString('vi-VN')}${item.suffix}`
+}
+
+function formatPrice(value) {
+  return Number(value || 0).toLocaleString('vi-VN')
+}
+
+function fallbackRoutes() {
+  return [
+    { id: 1, originId: 1, destinationId: 3, origin: 'Hà Nội', destination: 'Đà Nẵng', basePrice: 350000, description: 'Hà Nội → Đà Nẵng, 16 giờ di chuyển', imageUrl: '/images/routes/ha-noi-da-nang.png' },
+    { id: 2, originId: 3, destinationId: 2, origin: 'Đà Nẵng', destination: 'Hồ Chí Minh', basePrice: 180000, description: 'Đà Nẵng → Hồ Chí Minh, 8 giờ di chuyển', imageUrl: '/images/routes/da-nang-sai-gon.png' },
+    { id: 3, originId: 1, destinationId: 2, origin: 'Hà Nội', destination: 'Hồ Chí Minh', basePrice: 500000, description: 'Hà Nội → Hồ Chí Minh, 24 giờ di chuyển', imageUrl: '/images/routes/ha-noi-sai-gon.png' },
+  ]
+}
+
+function fallbackOperators() {
+  return [
+    { id: 1, name: 'Nhà xe Phương Trang', logoUrl: '/images/operators/phuong-trang.png', rating: 4.8, description: 'Mạng lưới tuyến phủ rộng.' },
+    { id: 2, name: 'Nhà xe Thành Bưởi', logoUrl: '/images/operators/thanh-buoi.png', rating: 4.7, description: 'Nhiều khung giờ trọng điểm.' },
+    { id: 3, name: 'Nhà xe Hoàng Long', logoUrl: '/images/operators/hoang-long.png', rating: 4.6, description: 'Xe giường nằm đường dài.' },
+  ]
+}
+
+function fallbackBanners() {
+  return [
+    { id: 1, title: 'Phương Trang — Ưu đãi 20%', imageUrl: '/images/banners/phuong-trang-offer.png' },
+    { id: 2, title: 'Thành Bưởi — Giá tốt nhất', imageUrl: '/images/banners/thanh-buoi-offer.png' },
+    { id: 3, title: 'Hoàng Long — Flash sale', imageUrl: '/images/banners/hoang-long-offer.png' },
+  ]
+}
+</script>
+
+<style scoped>
+.landing {
+  --page-bg: #f7f4ee;
+  --text: #18201d;
+  --muted: #6f756e;
+  --line: rgba(36, 40, 45, 0.12);
+  --panel: #fffdf7;
+  --accent: #e85d2f;
+  --gold: #f4c15d;
+  min-height: 100vh;
+  color: var(--text);
+  background: var(--page-bg);
+}
+
+.landing.dark {
+  --page-bg: #101415;
+  --text: #f7f4ee;
+  --muted: #b4b8ae;
+  --line: rgba(255, 255, 255, 0.12);
+  --panel: #171d1f;
+}
+
+.hero-section {
+  position: relative;
+  min-height: 660px;
+  overflow: hidden;
+  color: #fff;
+  background: #131817;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(10, 15, 16, 0.92), rgba(10, 15, 16, 0.42)),
+    url('/images/hero/pam-hero.png') center / cover no-repeat;
+  transform: scale(1.02);
+  animation: hero-pan 18s ease-in-out infinite alternate;
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: center;
+  gap: 26px;
+  width: min(1160px, calc(100% - 40px));
+  min-height: 660px;
+  margin: 0 auto;
+  padding: 72px 0 86px;
+}
+
+.hero-copy {
+  max-width: 700px;
+}
+
+.eyebrow,
+.section-head p {
+  margin: 0 0 10px;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  max-width: 780px;
+  font-size: 58px;
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.hero-sub {
+  max-width: 650px;
+  margin-top: 18px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.search-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr 190px auto;
+  gap: 14px;
+  align-items: end;
+  width: min(980px, 100%);
+  padding: 18px;
+  background: rgba(255, 253, 247, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.field label {
+  color: #646b63;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.field select,
+.field input {
+  width: 100%;
+  min-height: 46px;
+  color: #18201d;
+  background: #f7f4ee;
+  border: 1px solid #d8d1c4;
+  border-radius: 8px;
+  outline: none;
+  padding: 0 12px;
+}
+
+.field select:focus,
+.field input:focus {
+  border-color: var(--accent);
+  background: #fff;
+}
+
+.search-btn,
+.route-meta button {
+  min-height: 46px;
+  color: #fff;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  padding: 0 18px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.search-btn:disabled {
+  background: #b8afa4;
+}
+
+.form-error {
+  width: fit-content;
+  max-width: min(720px, 100%);
+  padding: 10px 14px;
+  color: #fff3ed;
+  background: rgba(197, 65, 36, 0.88);
+  border-radius: 8px;
+}
+
+.trust-section {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  width: min(1160px, calc(100% - 40px));
+  margin: -42px auto 0;
+  position: relative;
+  z-index: 2;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.trust-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  row-gap: 4px;
+  align-items: center;
+  padding: 20px;
+  background: var(--panel);
+}
+
+.trust-icon {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: #fff;
+  background: #2f8f83;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.trust-item strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.trust-item span:last-child {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.section {
+  width: min(1160px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 72px 0 0;
+}
+
+.section-head {
+  margin-bottom: 24px;
+}
+
+.section-head h2 {
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.route-grid,
+.operator-grid,
+.steps,
+.offer-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.route-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.route-card,
+.operator-card,
+.step,
+.offer-card {
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.route-card img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+.route-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.route-body h3,
+.operator-card h3,
+.step h3,
+.offer-card h3 {
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.route-body p,
+.operator-card p,
+.step p,
+.offer-card p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.route-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.route-meta span {
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.operator-band {
+  width: 100%;
+  padding: 72px max(20px, calc((100% - 1160px) / 2)) 0;
+}
+
+.operator-grid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.operator-card {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.operator-card img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.operator-card span {
+  display: inline-flex;
+  margin-top: 10px;
+  color: #805800;
+  background: rgba(244, 193, 93, 0.22);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.steps {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.step {
+  padding: 20px;
+}
+
+.step > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 18px;
+  color: #fff;
+  background: #3f7cac;
+  border-radius: 8px;
+  font-weight: 900;
+  animation: step-float 2.8s ease-in-out infinite;
+}
+
+.offers-section {
+  padding-bottom: 72px;
+}
+
+.offer-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.offer-card img {
+  width: 100%;
+  aspect-ratio: 20 / 7;
+  object-fit: cover;
+}
+
+.offer-card div {
+  padding: 16px;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.52s ease, transform 0.52s ease;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes hero-pan {
+  from { transform: scale(1.02) translateX(0); }
+  to { transform: scale(1.07) translateX(-24px); }
+}
+
+@keyframes step-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@media (max-width: 980px) {
+  h1 {
+    font-size: 44px;
+  }
+
+  .search-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .route-grid,
+  .operator-grid,
+  .offer-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .steps,
+  .trust-section {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-section,
+  .hero-inner {
+    min-height: 720px;
+  }
+
+  .hero-inner {
+    width: calc(100% - 28px);
+    padding-top: 44px;
+  }
+
+  h1 {
+    font-size: 34px;
+  }
+
+  .hero-sub {
+    font-size: 16px;
+  }
+
+  .search-panel,
+  .route-grid,
+  .operator-grid,
+  .steps,
+  .offer-grid,
+  .trust-section {
+    grid-template-columns: 1fr;
+  }
+
+  .section {
+    width: calc(100% - 28px);
+    padding-top: 54px;
+  }
+
+  .section-head h2 {
+    font-size: 28px;
+  }
+}
+</style>

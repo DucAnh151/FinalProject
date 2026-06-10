@@ -26,6 +26,21 @@ export const useAuthStore = defineStore('auth', {
       return res.data
     },
 
+    async updateProfile(payload) {
+      const res = await api.put('/auth/profile', {
+        userId: this.user.id,
+        ...payload,
+      })
+      this.user = res.data.user
+      sessionStorage.setItem('pam_user', JSON.stringify(this.user))
+      return res.data
+    },
+
+    setUser(user) {
+      this.user = user
+      sessionStorage.setItem('pam_user', JSON.stringify(this.user))
+    },
+
     logout() {
       this.user = null
       sessionStorage.removeItem('pam_user')

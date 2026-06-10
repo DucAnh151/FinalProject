@@ -31,6 +31,9 @@ app.use('/api/tickets', ticketRoutes)
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
 
+const landingRoutes = require('./routes/landing');
+app.use('/api/landing', landingRoutes);
+
 const pool = new Pool({
   host:     process.env.DB_HOST,
   port:     parseInt(process.env.DB_PORT),

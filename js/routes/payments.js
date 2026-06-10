@@ -26,9 +26,11 @@ router.post('/initiate', async (req, res) => {
 
     if (!booking)
       return res.status(404).json({ error: 'Không tìm thấy đơn đặt vé' });
+    if (Number(booking.user_id) !== Number(userId))
+      return res.status(403).json({ error: 'Bạn không có quyền thanh toán đơn này' });
     if (booking.status !== 'PENDING')
       return res.status(400).json({ error: 'Đơn đặt vé không hợp lệ' });
-    if (new Date() > booking.expires_at)
+    if (!booking.expires_at || new Date() > booking.expires_at)
       return res.status(400).json({ error: 'Đơn đặt vé đã hết hạn' });
 
     // 2. Kiểm tra PIN
@@ -36,6 +38,8 @@ router.post('/initiate', async (req, res) => {
       where: { id: BigInt(userId) }
     });
 
+    if (!user)
+      return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
     if (!user.payment_pin)
       return res.status(400).json({ error: 'Bạn chưa cài mật khẩu thanh toán' });
 
@@ -121,17 +125,42 @@ router.post('/confirm', async (req, res) => {
     // 3. Transaction: confirm payment + booking + seats + tạo tickets
     const result = await prisma.$transaction(async (tx) => {
 
+      const payment = await tx.payments.findUnique({
+        where: { id: BigInt(paymentId) },
+        include: {
+          bookings: {
+            include: { booking_seats: true }
+          }
+        }
+      });
+
+      if (!payment)
+        throw new Error('PAYMENT_NOT_FOUND');
+      if (payment.status !== 'PENDING')
+        throw new Error('PAYMENT_NOT_PENDING');
+      if (Number(payment.booking_id) !== Number(payload.bookingId))
+        throw new Error('OTP_PAYMENT_MISMATCH');
+
+      const booking = payment.bookings;
+      if (Number(booking.user_id) !== Number(userId))
+        throw new Error('FORBIDDEN');
+      if (booking.status !== 'PENDING')
+        throw new Error('BOOKING_NOT_PENDING');
+      if (!booking.expires_at || new Date() > booking.expires_at)
+        throw new Error('BOOKING_EXPIRED');
+      if (!booking.booking_seats.length)
+        throw new Error('PASSENGERS_MISSING');
+
       // Cập nhật payment → SUCCESS
       await tx.payments.update({
-        where: { id: BigInt(paymentId) },
+        where: { id: payment.id },
         data:  { status: 'SUCCESS', paid_at: new Date() }
       });
 
       // Cập nhật booking → CONFIRMED
-      const booking = await tx.bookings.update({
-        where: { id: BigInt(payload.bookingId) },
-        data:  { status: 'CONFIRMED', expires_at: null },
-        include: { booking_seats: true }
+      await tx.bookings.update({
+        where: { id: booking.id },
+        data:  { status: 'CONFIRMED', expires_at: null }
       });
 
       // Cập nhật ghế → CONFIRMED
@@ -182,6 +211,21 @@ router.post('/confirm', async (req, res) => {
     });
 
   } catch (e) {
+    if (e.message === 'PAYMENT_NOT_FOUND')
+      return res.status(404).json({ error: 'Không tìm thấy giao dịch thanh toán' });
+    if (e.message === 'PAYMENT_NOT_PENDING')
+      return res.status(400).json({ error: 'Giao dịch thanh toán không còn hợp lệ' });
+    if (e.message === 'OTP_PAYMENT_MISMATCH')
+      return res.status(400).json({ error: 'OTP không khớp với giao dịch' });
+    if (e.message === 'FORBIDDEN')
+      return res.status(403).json({ error: 'Bạn không có quyền xác nhận thanh toán này' });
+    if (e.message === 'BOOKING_NOT_PENDING')
+      return res.status(400).json({ error: 'Đơn đặt vé không còn chờ thanh toán' });
+    if (e.message === 'BOOKING_EXPIRED')
+      return res.status(400).json({ error: 'Đơn đặt vé đã hết hạn' });
+    if (e.message === 'PASSENGERS_MISSING')
+      return res.status(400).json({ error: 'Vui lòng nhập thông tin hành khách trước khi thanh toán' });
+
     console.error('Payment confirm error:', e);
     res.status(500).json({ error: 'Lỗi server' });
   }

@@ -4,7 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-const LOCK_MINUTES = 10;
+const LOCK_MINUTES = 5;
 
 // POST /api/bookings
 router.post('/', async (req, res) => {
@@ -19,6 +19,15 @@ router.post('/', async (req, res) => {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.users.findUnique({
+        where: { id: BigInt(userId) },
+        select: { role: true, is_active: true }
+      });
+
+      if (!user || !user.is_active)
+        throw new Error('USER_NOT_AVAILABLE');
+      if (user.role === 'ADMIN')
+        throw new Error('ADMIN_CANNOT_BOOK');
 
       // 1. Kiểm tra chuyến xe tồn tại và đang OPEN
       const trip = await tx.trips.findUnique({
@@ -103,6 +112,10 @@ router.post('/', async (req, res) => {
     });
 
   } catch (e) {
+    if (e.message === 'USER_NOT_AVAILABLE')
+      return res.status(403).json({ error: 'Tài khoản không khả dụng' });
+    if (e.message === 'ADMIN_CANNOT_BOOK')
+      return res.status(403).json({ error: 'Admin không được đặt vé' });
     if (e.message === 'TRIP_NOT_AVAILABLE')
       return res.status(400).json({ error: 'Chuyến xe không khả dụng' });
     if (e.message === 'SEAT_ALREADY_BOOKED')
@@ -137,13 +150,16 @@ router.get('/my', async (req, res) => {
         },
         booking_seats: {
           include: { seats: true }
-        }
+        },
+        tickets: true
       },
       orderBy: { created_at: 'desc' }
     });
 
     const result = bookings.map(b => ({
       id:          Number(b.id),
+      bookingId:   Number(b.id),
+      tripId:      Number(b.trip_id),
       status:      b.status,
       totalAmount: Number(b.total_amount),
       expiresAt:   b.expires_at,
@@ -151,7 +167,26 @@ router.get('/my', async (req, res) => {
       origin:      b.trips.routes.provinces_routes_origin_province_idToprovinces.name,
       destination: b.trips.routes.provinces_routes_destination_province_idToprovinces.name,
       departure:   b.trips.departure_time,
+      trip: {
+        id:            Number(b.trip_id),
+        origin:        b.trips.routes.provinces_routes_origin_province_idToprovinces.name,
+        destination:   b.trips.routes.provinces_routes_destination_province_idToprovinces.name,
+        departureTime: b.trips.departure_time,
+        price:         Number(b.total_amount) / Math.max(b.booking_seats.length, 1),
+      },
       seats:       b.booking_seats.map(bs => bs.seats.seat_name),
+      seatDetails: b.booking_seats.map(bs => ({
+        bookingSeatId:  Number(bs.id),
+        seatId:         Number(bs.seat_id),
+        seatName:       bs.seats.seat_name,
+        passengerName:  bs.passenger_name,
+        passengerPhone: bs.passenger_phone,
+      })),
+      tickets: b.tickets.map(t => ({
+        id:     Number(t.id),
+        qrCode: t.qr_code,
+        status: t.status,
+      })),
     }));
 
     res.json(result);
@@ -200,5 +235,69 @@ router.put('/:id/passengers', async (req, res) => {
 })
 
 // module.exports = router; ← dòng này giữ nguyên bên dưới
+
+// POST /api/bookings/:id/cancel
+router.post('/:id/cancel', async (req, res) => {
+  const { userId, reason = 'USER_CANCELLED' } = req.body;
+
+  if (!userId)
+    return res.status(400).json({ error: 'Thiếu userId' });
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const booking = await tx.bookings.findUnique({
+        where: { id: BigInt(req.params.id) },
+        include: {
+          booking_seats: true,
+          payments: true,
+          tickets: true,
+        }
+      });
+
+      if (!booking)
+        throw new Error('BOOKING_NOT_FOUND');
+      if (Number(booking.user_id) !== Number(userId))
+        throw new Error('FORBIDDEN');
+      if (booking.status === 'CANCELLED')
+        return booking;
+      if (booking.status === 'CONFIRMED' && booking.tickets.some(t => t.status === 'USED'))
+        throw new Error('TICKET_ALREADY_USED');
+
+      const seatIds = booking.booking_seats.map(bs => bs.seat_id);
+
+      await tx.tickets.updateMany({
+        where: { booking_id: booking.id },
+        data:  { status: 'CANCELLED' }
+      });
+
+      await tx.payments.updateMany({
+        where: { booking_id: booking.id, status: 'PENDING' },
+        data:  { status: 'FAILED' }
+      });
+
+      await tx.trip_seat_status.updateMany({
+        where: { trip_id: booking.trip_id, seat_id: { in: seatIds } },
+        data:  { status: 'AVAILABLE', locked_until: null, locked_by_user_id: null }
+      });
+
+      return tx.bookings.update({
+        where: { id: booking.id },
+        data:  { status: 'CANCELLED', expires_at: null }
+      });
+    });
+
+    res.json({ success: true, bookingId: Number(result.id), status: 'CANCELLED', reason });
+  } catch (e) {
+    if (e.message === 'BOOKING_NOT_FOUND')
+      return res.status(404).json({ error: 'Không tìm thấy đơn đặt vé' });
+    if (e.message === 'FORBIDDEN')
+      return res.status(403).json({ error: 'Bạn không có quyền hủy đơn này' });
+    if (e.message === 'TICKET_ALREADY_USED')
+      return res.status(400).json({ error: 'Vé đã sử dụng, không thể hủy' });
+
+    console.error('Cancel booking error:', e);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+})
 
 module.exports = router;

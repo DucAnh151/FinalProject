@@ -54,6 +54,10 @@ router.post('/register', async (req, res) => {
             email:    user.email,
             phone:    user.phone_number,
             role:     user.role,
+            walletBalance: Number(user.wallet_balance || 0),
+            loyaltyTier: user.loyalty_tier || 'STANDARD',
+            totalTickets: user.total_tickets || 0,
+            totalTrips: user.total_trips || 0,
         }
     });
 
@@ -97,11 +101,78 @@ router.post('/login', async (req, res) => {
         email:    user.email,
         phone:    user.phone_number,
         role:     user.role,
+        walletBalance: Number(user.wallet_balance || 0),
+        loyaltyTier: user.loyalty_tier || 'STANDARD',
+        totalTickets: user.total_tickets || 0,
+        totalTrips: user.total_trips || 0,
       }
     });
 
   } catch (e) {
     console.error('Login error:', e);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
+// PUT /api/auth/profile
+router.put('/profile', async (req, res) => {
+  const { userId, fullName, phone, email, avatarUrl } = req.body;
+
+  if (!userId)
+    return res.status(400).json({ error: 'Thiếu userId' });
+  if (!fullName || fullName.trim().length < 2)
+    return res.status(400).json({ error: 'Họ tên tối thiểu 2 ký tự' });
+  if (!phone && !email)
+    return res.status(400).json({ error: 'Cần có số điện thoại hoặc email' });
+
+  try {
+    await prisma.$executeRawUnsafe('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT');
+
+    const duplicated = await prisma.users.findFirst({
+      where: {
+        id: { not: BigInt(userId) },
+        OR: [
+          phone ? { phone_number: phone } : undefined,
+          email ? { email } : undefined,
+        ].filter(Boolean)
+      }
+    });
+
+    if (duplicated)
+      return res.status(409).json({ error: 'Số điện thoại hoặc email đã được sử dụng' });
+
+    const rows = await prisma.$queryRaw`
+      UPDATE users
+      SET full_name = ${fullName.trim()},
+          phone_number = ${phone || null},
+          email = ${email || null},
+          avatar_url = ${avatarUrl || null}
+      WHERE id = ${BigInt(userId)}
+      RETURNING id, full_name, email, phone_number, role, avatar_url,
+                wallet_balance, loyalty_tier, total_tickets, total_trips
+    `;
+
+    if (!rows.length)
+      return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
+
+    const user = rows[0];
+    res.json({
+      success: true,
+      user: {
+        id: Number(user.id),
+        fullName: user.full_name,
+        email: user.email,
+        phone: user.phone_number,
+        role: user.role,
+        avatarUrl: user.avatar_url,
+        walletBalance: Number(user.wallet_balance || 0),
+        loyaltyTier: user.loyalty_tier || 'STANDARD',
+        totalTickets: user.total_tickets || 0,
+        totalTrips: user.total_trips || 0,
+      }
+    });
+  } catch (e) {
+    console.error('Update profile error:', e);
     res.status(500).json({ error: 'Lỗi server' });
   }
 });

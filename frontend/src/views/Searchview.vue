@@ -30,37 +30,114 @@
     <!-- LOADING -->
     <div v-if="loading" class="loading">Đang tải chuyến xe...</div>
 
-    <!-- EMPTY -->
-    <div v-else-if="!trips.length" class="empty">
+    <!-- EMPTY RAW -->
+    <div v-else-if="!allTrips.length" class="empty">
       <div class="empty-icon">🚌</div>
       <div class="empty-title">Không có chuyến xe</div>
       <div class="empty-sub">Thử chọn ngày khác hoặc tuyến đường khác</div>
       <button class="btn-search-again" @click="router.push('/')">Tìm kiếm lại</button>
     </div>
 
-    <!-- TRIP LIST -->
-    <div v-else class="trip-list">
-      <div v-for="trip in trips" :key="trip.id" class="trip-card" @click="selectTrip(trip)">
-        <div class="trip-main">
-          <div class="trip-route">
-            <span class="city">{{ trip.origin }}</span>
-            <span class="arrow">→</span>
-            <span class="city">{{ trip.destination }}</span>
-          </div>
-          <div class="trip-time">
-            <span class="time">{{ formatTime(trip.departureTime) }}</span>
-            <span class="duration">~{{ getDuration(trip.departureTime, trip.arrivalTime) }}</span>
-            <span class="time">{{ formatTime(trip.arrivalTime) }}</span>
-          </div>
-          <div class="trip-meta">
-            <span class="operator">🚌 {{ trip.operator }}</span>
-            <span class="vehicle">{{ trip.vehicleType }}</span>
+    <!-- SEARCH LAYOUT -->
+    <div v-else class="search-layout">
+      <!-- SIDEBAR FILTERS -->
+      <aside class="filter-sidebar">
+        <div class="filter-header">
+          <h2>Bộ lọc tìm kiếm</h2>
+          <button class="btn-clear-link" @click="resetFilters">Xoá lọc</button>
+        </div>
+
+        <!-- Filter by Operator -->
+        <div class="filter-group">
+          <h3>Nhà xe</h3>
+          <div class="checkbox-list">
+            <label v-for="op in uniqueOperators" :key="op" class="checkbox-label">
+              <input type="checkbox" :value="op" v-model="selectedOperators" />
+              <span>{{ op }}</span>
+            </label>
           </div>
         </div>
-        <div class="trip-right">
-          <div class="price">{{ formatPrice(trip.price) }}<span>đ</span></div>
-          <div class="seats">{{ trip.totalSeats }} chỗ</div>
-          <button class="btn-select">Chọn ghế →</button>
+
+        <!-- Filter by Vehicle Type -->
+        <div class="filter-group">
+          <h3>Loại xe</h3>
+          <div class="checkbox-list">
+            <label v-for="vt in uniqueVehicleTypes" :key="vt" class="checkbox-label">
+              <input type="checkbox" :value="vt" v-model="selectedVehicleTypes" />
+              <span>{{ vt }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Filter by Time Slot -->
+        <div class="filter-group">
+          <h3>Khung giờ đi</h3>
+          <div class="checkbox-list">
+            <label class="checkbox-label">
+              <input type="checkbox" value="morning" v-model="selectedTimeSlots" />
+              <span>Sáng (00:00 - 12:00)</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" value="afternoon" v-model="selectedTimeSlots" />
+              <span>Chiều (12:00 - 18:00)</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" value="evening" v-model="selectedTimeSlots" />
+              <span>Tối (18:00 - 24:00)</span>
+            </label>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RESULTS COLUMN -->
+      <div class="results-column">
+        <!-- SORT BAR -->
+        <div class="sort-bar">
+          <span class="results-count">Tìm thấy <strong>{{ filteredAndSortedTrips.length }}</strong> chuyến xe</span>
+          <div class="sort-controls">
+            <span class="sort-label">Sắp xếp:</span>
+            <select v-model="sortBy" class="sort-select">
+              <option value="price-asc">Giá tăng dần</option>
+              <option value="price-desc">Giá giảm dần</option>
+              <option value="time-asc">Giờ đi sớm nhất</option>
+              <option value="time-desc">Giờ đi muộn nhất</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- EMPTY FILTERED -->
+        <div v-if="filteredAndSortedTrips.length === 0" class="empty empty-filtered">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">Không có kết quả phù hợp</div>
+          <div class="empty-sub">Hãy thử xoá bớt các bộ lọc đang chọn</div>
+          <button class="btn-reset-filters" @click="resetFilters">Xoá toàn bộ lọc</button>
+        </div>
+
+        <!-- TRIP LIST -->
+        <div v-else class="trip-list">
+          <div v-for="trip in filteredAndSortedTrips" :key="trip.id" class="trip-card" @click="selectTrip(trip)">
+            <div class="trip-main">
+              <div class="trip-route">
+                <span class="city">{{ trip.origin }}</span>
+                <span class="arrow">→</span>
+                <span class="city">{{ trip.destination }}</span>
+              </div>
+              <div class="trip-time">
+                <span class="time">{{ formatTime(trip.departureTime) }}</span>
+                <span class="duration">~{{ getDuration(trip.departureTime, trip.arrivalTime) }}</span>
+                <span class="time">{{ formatTime(trip.arrivalTime) }}</span>
+              </div>
+              <div class="trip-meta">
+                <span class="operator">🚌 {{ trip.operator }}</span>
+                <span class="vehicle">{{ trip.vehicleType }}</span>
+              </div>
+            </div>
+            <div class="trip-right">
+              <div class="price">{{ formatPrice(trip.price) }}<span>đ</span></div>
+              <div class="seats">{{ trip.totalSeats }} chỗ</div>
+              <button class="btn-select">Chọn ghế →</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -68,17 +145,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 
 const router = useRouter()
 const auth   = useAuthStore()
 
-const trips      = ref([])
+const allTrips   = ref([])
 const loading    = ref(true)
 const searchForm = ref(null)
 const provinces  = ref([])
+
+// Filters state
+const selectedOperators = ref([])
+const selectedVehicleTypes = ref([])
+const selectedTimeSlots = ref([])
+const sortBy = ref('price-asc')
 
 onMounted(() => {
   const results = sessionStorage.getItem('search_results')
@@ -88,10 +171,72 @@ onMounted(() => {
   if (!results) { router.push('/'); return }
 
   const data   = JSON.parse(results)
-  trips.value  = data.trips || []
+  allTrips.value = data.trips || []
   searchForm.value = form ? JSON.parse(form) : null
   provinces.value  = provs ? JSON.parse(provs) : []
   loading.value    = false
+})
+
+// Dynamic filter options based on search results
+const uniqueOperators = computed(() => {
+  const ops = allTrips.value.map(t => t.operator)
+  return [...new Set(ops)]
+})
+
+const uniqueVehicleTypes = computed(() => {
+  const types = allTrips.value.map(t => t.vehicleType)
+  return [...new Set(types)]
+})
+
+// Reset all filters
+function resetFilters() {
+  selectedOperators.value = []
+  selectedVehicleTypes.value = []
+  selectedTimeSlots.value = []
+  sortBy.value = 'price-asc'
+}
+
+// Filter and Sort Logic
+const filteredAndSortedTrips = computed(() => {
+  let list = [...allTrips.value]
+
+  // 1. Filter by Operator
+  if (selectedOperators.value.length > 0) {
+    list = list.filter(t => selectedOperators.value.includes(t.operator))
+  }
+
+  // 2. Filter by Vehicle Type
+  if (selectedVehicleTypes.value.length > 0) {
+    list = list.filter(t => selectedVehicleTypes.value.includes(t.vehicleType))
+  }
+
+  // 3. Filter by Time Slot
+  if (selectedTimeSlots.value.length > 0) {
+    list = list.filter(t => {
+      const departureTime = new Date(t.departureTime)
+      const hour = departureTime.getHours()
+      
+      const slots = []
+      if (hour >= 0 && hour < 12) slots.push('morning')
+      if (hour >= 12 && hour < 18) slots.push('afternoon')
+      if (hour >= 18 && hour < 24) slots.push('evening')
+      
+      return selectedTimeSlots.value.some(s => slots.includes(s))
+    })
+  }
+
+  // 4. Sort
+  if (sortBy.value === 'price-asc') {
+    list.sort((a, b) => a.price - b.price)
+  } else if (sortBy.value === 'price-desc') {
+    list.sort((a, b) => b.price - a.price)
+  } else if (sortBy.value === 'time-asc') {
+    list.sort((a, b) => new Date(a.departureTime) - new Date(b.departureTime))
+  } else if (sortBy.value === 'time-desc') {
+    list.sort((a, b) => new Date(b.departureTime) - new Date(a.departureTime))
+  }
+
+  return list
 })
 
 function selectTrip(trip) {
@@ -179,6 +324,8 @@ function logout() {
   padding: 2rem 2.5rem 1.25rem;
   border-bottom: 1px solid #d4cfc6;
   background: #fff;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 .page-title {
   font-family: 'Bebas Neue', sans-serif;
@@ -207,7 +354,158 @@ function logout() {
   font-size: 0.9rem; font-weight: 600; cursor: pointer;
 }
 
-.trip-list { padding: 1.5rem 2.5rem; display: flex; flex-direction: column; gap: 1rem; }
+/* SEARCH LAYOUT */
+.search-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 2rem;
+  padding: 2rem 2.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* SIDEBAR */
+.filter-sidebar {
+  background: #fff;
+  border: 1px solid #d4cfc6;
+  border-radius: 12px;
+  padding: 1.5rem;
+  height: fit-content;
+  position: sticky;
+  top: 80px;
+}
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.filter-header h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 1px;
+  margin: 0;
+  color: #0d0d0d;
+}
+.btn-clear-link {
+  background: none;
+  border: none;
+  color: #e85d2f;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.btn-clear-link:hover {
+  text-decoration: underline;
+}
+
+.filter-group {
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #ede9e1;
+  padding-bottom: 1.25rem;
+}
+.filter-group:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.filter-group h3 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #7a7468;
+  margin: 0 0 0.8rem;
+}
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #444;
+  cursor: pointer;
+  user-select: none;
+}
+.checkbox-label input {
+  cursor: pointer;
+  accent-color: #e85d2f;
+}
+
+/* RESULTS COLUMN */
+.results-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.sort-bar {
+  background: #fff;
+  border: 1px solid #d4cfc6;
+  border-radius: 12px;
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.results-count {
+  font-size: 0.88rem;
+  color: #7a7468;
+}
+.results-count strong {
+  color: #0d0d0d;
+}
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.sort-label {
+  font-size: 0.82rem;
+  color: #7a7468;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.sort-select {
+  border: 1.5px solid #d4cfc6;
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  color: #0d0d0d;
+  background: #f5f2ec;
+  outline: none;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s;
+}
+.sort-select:focus {
+  border-color: #e85d2f;
+  background: #fff;
+}
+
+.empty-filtered {
+  background: #fff;
+  border: 1px solid #d4cfc6;
+  border-radius: 12px;
+  padding: 4rem 2rem;
+}
+.btn-reset-filters {
+  background: #e85d2f;
+  color: #fff;
+  border: none;
+  padding: 0.65rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.trip-list { display: flex; flex-direction: column; gap: 1rem; }
 
 .trip-card {
   background: #fff;
@@ -259,4 +557,14 @@ function logout() {
   transition: background 0.15s; white-space: nowrap;
 }
 .btn-select:hover { background: #c44a1e; }
+
+@media (max-width: 820px) {
+  .search-layout {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+  .filter-sidebar {
+    position: static;
+  }
+}
 </style>

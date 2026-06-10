@@ -244,19 +244,37 @@ function validate() {
   return Object.keys(errs).length === 0
 }
 
-function submit() {
+async function submit() {
   if (!validate()) return
 
-  // Lưu thông tin để PaymentView dùng
-  const paymentData = {
-    ...booking.value,
-    passengers: passengers.value,
-    pickupStopId:  pickupStopId.value,
-    dropoffStopId: dropoffStopId.value,
-    totalPrice:    totalPrice.value,
+  submitting.value = true
+  try {
+    // Gửi thông tin hành khách lên server
+    await api.put(`/bookings/${booking.value.bookingId}/passengers`, {
+      passengers: booking.value.seats.map((seat, idx) => ({
+        seatId: seat.seatId,
+        name:   passengers.value[idx].name,
+        phone:  passengers.value[idx].phone,
+      })),
+      pickupStopId:  pickupStopId.value,
+      dropoffStopId: dropoffStopId.value,
+    })
+
+    // Lưu để PaymentView dùng
+    const paymentData = {
+      ...booking.value,
+      passengers:    passengers.value,
+      pickupStopId:  pickupStopId.value,
+      dropoffStopId: dropoffStopId.value,
+      totalPrice:    totalPrice.value,
+    }
+    sessionStorage.setItem('payment_data', JSON.stringify(paymentData))
+    router.push('/payment')
+  } catch (e) {
+    errors.value.general = e.response?.data?.error || 'Có lỗi xảy ra'
+  } finally {
+    submitting.value = false
   }
-  sessionStorage.setItem('payment_data', JSON.stringify(paymentData))
-  router.push('/payment')
 }
 
 function formatCountdown(s) {

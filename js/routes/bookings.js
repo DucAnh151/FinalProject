@@ -92,16 +92,6 @@ router.post('/', async (req, res) => {
         }
       });
 
-      // 8. Tạo booking_seats
-      await tx.booking_seats.createMany({
-        data: selectedSeatIds.map(seatId => ({
-          booking_id:      booking.id,
-          seat_id:         BigInt(seatId),
-          passenger_name:  '',
-          passenger_phone: '',
-        }))
-      });
-
       return { booking, expiresAt };
     });
 
@@ -170,5 +160,45 @@ router.get('/my', async (req, res) => {
     res.status(500).json({ error: 'Lỗi server' });
   }
 });
+
+// PUT /api/bookings/:id/passengers
+router.put('/:id/passengers', async (req, res) => {
+  const { passengers, pickupStopId, dropoffStopId } = req.body
+
+  if (!passengers?.length)
+    return res.status(400).json({ error: 'Thiếu thông tin hành khách' })
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.bookings.update({
+        where: { id: BigInt(req.params.id) },
+        data: {
+          pickup_stop_id:  pickupStopId,
+          dropoff_stop_id: dropoffStopId,
+        }
+      })
+
+      await tx.booking_seats.deleteMany({
+        where: { booking_id: BigInt(req.params.id) }
+      })
+
+      await tx.booking_seats.createMany({
+        data: passengers.map(p => ({
+          booking_id:      BigInt(req.params.id),
+          seat_id:         BigInt(p.seatId),
+          passenger_name:  p.name,
+          passenger_phone: p.phone,
+        }))
+      })
+    })
+
+    res.json({ success: true })
+  } catch (e) {
+    console.error('Update passengers error:', e)
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+// module.exports = router; ← dòng này giữ nguyên bên dưới
 
 module.exports = router;

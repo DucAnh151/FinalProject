@@ -102,7 +102,7 @@
         </div>
 
         <div class="steps">
-          <article v-for="step in steps" :key="step.title" class="step reveal">
+          <article v-for="step in steps" :key="step.icon" class="step reveal">
             <span>{{ step.icon }}</span>
             <h3>{{ step.title }}</h3>
             <p>{{ step.text }}</p>
@@ -133,7 +133,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import PublicFooter from '../components/PublicFooter.vue'
 import PublicHeader from '../components/PublicHeader.vue'
@@ -248,6 +248,8 @@ onMounted(async () => {
 function toggleLocale() {
   locale.value = locale.value === 'vi' ? 'en' : 'vi'
   sessionStorage.setItem('pam_locale', locale.value)
+  // Sau khi Vue re-render xong, observe lại các .reveal element mới
+  nextTick(() => setupReveal())
 }
 
 async function loadProvinces() {
@@ -322,14 +324,27 @@ function searchRoute(route) {
   doSearch()
 }
 
-function setupReveal() {
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) entry.target.classList.add('is-visible')
-    })
-  }, { threshold: 0.16 })
+// Giữ observer ở ngoài để tái sử dụng
+let revealObserver = null
 
-  document.querySelectorAll('.reveal').forEach((el) => observer.observe(el))
+function setupReveal() {
+  if (!revealObserver) {
+    revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add('is-visible')
+      })
+    }, { threshold: 0.16 })
+  }
+
+  // Chỉ observe những element chưa có is-visible (tránh reset khi locale thay đổi)
+  document.querySelectorAll('.reveal').forEach((el) => {
+    if (!el.classList.contains('is-visible')) {
+      revealObserver.observe(el)
+    } else {
+      // Element đã visible rồi thì giữ nguyên, chỉ đảm bảo class còn đó
+      el.classList.add('is-visible')
+    }
+  })
 }
 
 function animateStats() {

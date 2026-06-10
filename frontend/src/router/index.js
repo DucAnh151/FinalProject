@@ -10,7 +10,7 @@ const routes = [
   {
     path: '/home',
     component: () => import('../views/HomeView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, disallowRoles: ['ADMIN', 'DRIVER'] }
   },
   {
     path: '/login',
@@ -25,7 +25,7 @@ const routes = [
   {
     path: '/search',
     component: () => import('../views/SearchView.vue'),
-    meta: { requiresAuth: true, disallowRoles: ['ADMIN'] }
+    meta: { requiresAuth: true, disallowRoles: ['ADMIN', 'DRIVER'] }
   },
   {
     path: '/trips/:id/seats',
@@ -40,12 +40,12 @@ const routes = [
   {
     path: '/payment',
     component: () => import('../views/PaymentView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, disallowRoles: ['ADMIN'] }
   },
   {
     path: '/my-tickets',
     component: () => import('../views/MyTicketsView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, disallowRoles: ['ADMIN'] }
   },
   {
     path: '/driver',
@@ -62,6 +62,10 @@ const routes = [
     component: () => import('../views/SettingsView.vue'),
     meta: { requiresAuth: true }
   },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
+  }
 ]
 
 const router = createRouter({
@@ -69,23 +73,39 @@ const router = createRouter({
   routes
 })
 
+// Helper: redirect về đúng trang home theo role
+function roleHome(auth) {
+  if (auth.isAdmin)  return '/admin'
+  if (auth.isDriver) return '/driver'
+  return '/home'
+}
+
 router.beforeEach((to) => {
   const auth = useAuthStore()
 
+  // Landing page: nếu đã đăng nhập → redirect về đúng home
   if (to.path === '/' && auth.isLoggedIn) {
-    return { path: auth.isAdmin ? '/admin' : '/home' }
+    return { path: roleHome(auth) }
   }
+
+  // Trang yêu cầu auth: chưa login → về login
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
+
+  // Trang chỉ dành cho guest: đã login → về đúng home
   if (to.meta.guestOnly && auth.isLoggedIn) {
-    return { path: auth.isAdmin ? '/admin' : '/home' }
+    return { path: roleHome(auth) }
   }
+
+  // Trang yêu cầu role cụ thể: sai role → về đúng home của role đó
   if (to.meta.role && auth.user?.role !== to.meta.role) {
-    return { path: '/home' }
+    return { path: roleHome(auth) }
   }
+
+  // Trang không cho phép role này: → về đúng home của role đó
   if (to.meta.disallowRoles?.includes(auth.user?.role)) {
-    return { path: auth.isAdmin ? '/admin' : '/home' }
+    return { path: roleHome(auth) }
   }
 })
 

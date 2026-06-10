@@ -1,6 +1,6 @@
 <template>
   <div class="auth-page">
-    <!-- Left panel -->
+    <!-- LEFT PANEL — branding -->
     <div class="panel-left">
       <div class="brand">PAM TRAVEL</div>
       <div class="tagline">
@@ -15,145 +15,223 @@
       </div>
     </div>
 
-    <!-- Right panel -->
+    <!-- RIGHT PANEL — form -->
     <div class="panel-right">
       <div class="form-box">
-        <!-- Tabs -->
         <div class="tabs">
-          <div :class="['tab', { active: tab === 'login' }]" @click="tab = 'login'">Đăng nhập</div>
-          <div :class="['tab', { active: tab === 'register' }]" @click="tab = 'register'">Đăng ký</div>
+          <div :class="['tab', { active: tab === 'login' }]"    @click="switchTab('login')">Đăng nhập</div>
+          <div :class="['tab', { active: tab === 'register' }]" @click="switchTab('register')">Đăng ký</div>
         </div>
 
-        <!-- LOGIN -->
+        <!-- ── LOGIN ── -->
         <div v-if="tab === 'login'">
           <div class="form-title">CHÀO MỪNG</div>
           <div class="form-sub">Đăng nhập bằng email hoặc số điện thoại</div>
 
-          <div v-if="error" class="alert alert-error">{{ error }}</div>
+          <div v-if="error"   class="alert alert-error">{{ error }}</div>
           <div v-if="success" class="alert alert-success">{{ success }}</div>
 
           <div class="field">
             <label>Email hoặc Số điện thoại</label>
-            <input v-model="loginForm.identifier" type="text" placeholder="abc@travel.vn"
-              @keyup.enter="doLogin" />
+            <input
+              v-model.trim="loginForm.identifier"
+              type="text"
+              placeholder="abc@gmail.com"
+              autocomplete="username"
+              :disabled="loading"
+              @keyup.enter="doLogin"
+            />
           </div>
           <div class="field">
             <label>Mật khẩu</label>
-            <input v-model="loginForm.password" type="password" placeholder="••••••"
-              @keyup.enter="doLogin" />
+            <input
+              v-model="loginForm.password"
+              type="password"
+              placeholder="••••"
+              autocomplete="current-password"
+              :disabled="loading"
+              @keyup.enter="doLogin"
+            />
           </div>
 
           <button class="btn-submit" :disabled="loading" @click="doLogin">
-            <span v-if="loading">Đang đăng nhập...</span>
-            <span v-else>ĐĂNG NHẬP</span>
+            <span v-if="loading" class="spinner"></span>
+            <span>{{ loading ? 'Đang đăng nhập...' : 'ĐĂNG NHẬP' }}</span>
           </button>
 
           <div class="hint">
             <strong>Tài khoản thử nghiệm:</strong><br>
-            admin@pamtravel.vn / admin123<br>
-            driver1@travel.vn/ driver123<br>
-            khach1@gmail.com / customer123
+            👤 admin@pamtravel.vn / admin123 (ADMIN)<br>
+            👤 driver1@travel.com / driver123 (DRIVER)<br>
+            👤 khach1@gmail.com / khach123 (CUSTOMER)
           </div>
         </div>
 
-        <!-- REGISTER -->
+        <!-- ── REGISTER ── -->
         <div v-if="tab === 'register'">
           <div class="form-title">TẠO TÀI KHOẢN</div>
           <div class="form-sub">Đăng ký tài khoản hành khách mới</div>
 
-          <div v-if="error" class="alert alert-error">{{ error }}</div>
+          <div v-if="error"   class="alert alert-error">{{ error }}</div>
           <div v-if="success" class="alert alert-success">{{ success }}</div>
 
           <div class="field">
-            <label>Họ và tên</label>
-            <input v-model="regForm.fullName" type="text" placeholder="Nguyễn Văn A" />
+            <label>Họ và tên <span class="req">*</span></label>
+            <input
+              v-model.trim="regForm.fullName"
+              type="text"
+              placeholder="Nguyễn Văn A"
+              :disabled="loading"
+            />
           </div>
           <div class="field-row">
             <div class="field">
               <label>Số điện thoại</label>
-              <input v-model="regForm.phone" type="tel" placeholder="0901234567" />
+              <input
+                v-model.trim="regForm.phone"
+                type="tel"
+                placeholder="0901234567"
+                :disabled="loading"
+              />
             </div>
             <div class="field">
               <label>Email</label>
-              <input v-model="regForm.email" type="email" placeholder="email@gmail.com" />
+              <input
+                v-model.trim="regForm.email"
+                type="email"
+                placeholder="email@gmail.com"
+                :disabled="loading"
+              />
             </div>
           </div>
-          <div class="field-row">
+          <div class="field-row" style="margin-top: 0">
             <div class="field">
-              <label>Mật khẩu</label>
-              <input v-model="regForm.password" type="password" placeholder="Tối thiểu 6 ký tự" />
+              <label>Mật khẩu <span class="req">*</span></label>
+              <input
+                v-model="regForm.password"
+                type="password"
+                placeholder="Tối thiểu 6 ký tự"
+                :disabled="loading"
+              />
             </div>
             <div class="field">
-              <label>Xác nhận mật khẩu</label>
-              <input v-model="regForm.confirm" type="password" placeholder="Nhập lại" />
+              <label>Xác nhận mật khẩu <span class="req">*</span></label>
+              <input
+                v-model="regForm.confirm"
+                type="password"
+                placeholder="Nhập lại"
+                :disabled="loading"
+                @keyup.enter="doRegister"
+              />
             </div>
           </div>
 
           <button class="btn-submit" :disabled="loading" @click="doRegister" style="margin-top:1.25rem">
-            <span v-if="loading">Đang đăng ký...</span>
-            <span v-else>TẠO TÀI KHOẢN</span>
+            <span v-if="loading" class="spinner"></span>
+            <span>{{ loading ? 'Đang đăng ký...' : 'TẠO TÀI KHOẢN' }}</span>
           </button>
         </div>
+
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 
-const router   = useRouter()
-const route    = useRoute()
-const auth     = useAuthStore()
-const tab      = ref('login')
-const loading  = ref(false)
-const error    = ref('')
-const success  = ref('')
+const router = useRouter()
+const route  = useRoute()
+const auth   = useAuthStore()
+
+const tab     = ref('login')
+const loading = ref(false)
+const error   = ref('')
+const success = ref('')
 
 const loginForm = ref({ identifier: '', password: '' })
 const regForm   = ref({ fullName: '', phone: '', email: '', password: '', confirm: '' })
 
-// Xóa alert khi đổi tab
-watch(tab, () => { error.value = ''; success.value = '' })
+// Chuyển tab từ query param (?tab=register)
+onMounted(() => {
+  if (route.query.tab === 'register') tab.value = 'register'
 
-async function doLogin() {
-  error.value = ''; success.value = ''
-  if (!loginForm.value.identifier || !loginForm.value.password) {
-    error.value = 'Vui lòng nhập đầy đủ thông tin'; return
+  // Hiển thị notice từ LandingView (khi guest tìm kiếm)
+  const notice = sessionStorage.getItem('pam_login_notice')
+  if (notice) {
+    error.value = notice
+    sessionStorage.removeItem('pam_login_notice')
   }
+})
+
+// Xoá thông báo khi đổi tab
+function switchTab(newTab) {
+  tab.value     = newTab
+  error.value   = ''
+  success.value = ''
+}
+
+watch(tab, () => {
+  error.value   = ''
+  success.value = ''
+})
+
+// Redirect về đúng trang sau login
+function redirectAfterLogin() {
+  const redirect = route.query.redirect
+  if (redirect && redirect !== '/login') return router.push(redirect)
+  if (auth.isAdmin)  return router.push('/admin')
+  if (auth.isDriver) return router.push('/driver')
+  router.push('/home')
+}
+
+// ── ĐĂNG NHẬP ──
+async function doLogin() {
+  error.value   = ''
+  success.value = ''
+
+  const { identifier, password } = loginForm.value
+  if (!identifier) { error.value = 'Vui lòng nhập email hoặc số điện thoại'; return }
+  if (!password)   { error.value = 'Vui lòng nhập mật khẩu'; return }
+
   loading.value = true
   try {
-    await auth.login(loginForm.value.identifier, loginForm.value.password)
-    success.value = `Xin chào ${auth.user.fullName || auth.user.email}! Đang chuyển trang...`
-    setTimeout(() => router.push(route.query.redirect || '/home'), 800)
+    await auth.login(identifier, password)
+    const name = auth.user.fullName || auth.user.phone || auth.user.email
+    success.value = `✅ Xin chào ${name}! Đang chuyển trang...`
+    setTimeout(redirectAfterLogin, 700)
   } catch (e) {
-    error.value = e.response?.data?.error || 'Đăng nhập thất bại'
+    error.value = e.response?.data?.error || 'Đăng nhập thất bại. Vui lòng thử lại.'
   } finally {
     loading.value = false
   }
 }
 
+// ── ĐĂNG KÝ ──
 async function doRegister() {
-  error.value = ''; success.value = ''
+  error.value   = ''
+  success.value = ''
+
   const { fullName, phone, email, password, confirm } = regForm.value
-  if (!fullName) { error.value = 'Vui lòng nhập họ tên'; return }
-  if (!phone && !email) { error.value = 'Nhập số điện thoại hoặc email'; return }
-  if (password.length < 6) { error.value = 'Mật khẩu tối thiểu 6 ký tự'; return }
+  if (!fullName)            { error.value = 'Vui lòng nhập họ và tên'; return }
+  if (!phone && !email)     { error.value = 'Vui lòng nhập số điện thoại hoặc email'; return }
+  if (password.length < 6)  { error.value = 'Mật khẩu tối thiểu 6 ký tự'; return }
   if (password !== confirm) { error.value = 'Mật khẩu xác nhận không khớp'; return }
 
   loading.value = true
   try {
     await auth.register(fullName, phone || null, email || null, password)
-    success.value = 'Tạo tài khoản thành công! Đang chuyển sang đăng nhập...'
+    success.value = '✅ Tạo tài khoản thành công! Chuyển sang đăng nhập...'
     setTimeout(() => {
       loginForm.value.identifier = phone || email
-      tab.value = 'login'
-      success.value = 'Tài khoản đã tạo. Vui lòng đăng nhập.'
+      regForm.value = { fullName: '', phone: '', email: '', password: '', confirm: '' }
+      switchTab('login')
+      success.value = '✅ Tài khoản đã tạo. Vui lòng đăng nhập.'
     }, 1200)
   } catch (e) {
-    error.value = e.response?.data?.error || 'Đăng ký thất bại'
+    error.value = e.response?.data?.error || 'Đăng ký thất bại. Vui lòng thử lại.'
   } finally {
     loading.value = false
   }
@@ -161,18 +239,33 @@ async function doRegister() {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');
+
 .auth-page {
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 100vh;
-  font-family: 'DM Sans', sans-serif;
 }
+
+/* LEFT */
 .panel-left {
   background: #0d0d0d;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+.panel-left::before {
+  content: 'PAM';
+  position: absolute;
+  right: -2rem; top: -1rem;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14rem;
+  color: rgba(255,255,255,0.03);
+  pointer-events: none;
+  line-height: 1;
 }
 .brand {
   font-family: 'Bebas Neue', sans-serif;
@@ -186,13 +279,15 @@ async function doRegister() {
   color: #fff;
   line-height: 1;
   letter-spacing: 1px;
-  margin-bottom: 1rem;
+  margin: 0 0 1rem;
 }
 .tagline h2 span { color: #e85d2f; }
-.tagline p { color: #666; font-size: 0.9rem; line-height: 1.7; }
+.tagline p { color: #666; font-size: 0.9rem; line-height: 1.7; margin: 0; }
 .features { display: flex; flex-direction: column; gap: 0.75rem; }
 .feature { display: flex; align-items: center; gap: 0.75rem; color: #555; font-size: 0.82rem; }
 .dot { width: 6px; height: 6px; background: #e85d2f; border-radius: 50%; flex-shrink: 0; }
+
+/* RIGHT */
 .panel-right {
   background: #f5f2ec;
   display: flex;
@@ -201,6 +296,8 @@ async function doRegister() {
   padding: 3rem 2rem;
 }
 .form-box { width: 100%; max-width: 400px; }
+
+/* TABS */
 .tabs { display: flex; border-bottom: 2px solid #d4cfc6; margin-bottom: 2rem; }
 .tab {
   padding: 0.75rem 1.5rem;
@@ -211,15 +308,22 @@ async function doRegister() {
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
   transition: all 0.15s;
+  user-select: none;
 }
+.tab:hover:not(.active) { color: #0d0d0d; }
 .tab.active { color: #e85d2f; border-bottom-color: #e85d2f; }
+
+/* FORM */
 .form-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 2rem;
   letter-spacing: 1px;
   margin-bottom: 0.35rem;
+  color: #0d0d0d;
 }
 .form-sub { font-size: 0.83rem; color: #7a7468; margin-bottom: 1.75rem; }
+.req { color: #e85d2f; }
+
 .field { margin-bottom: 1.1rem; }
 .field label {
   display: block;
@@ -236,30 +340,56 @@ async function doRegister() {
   border-radius: 8px;
   padding: 0.7rem 1rem;
   font-size: 0.9rem;
-  outline: none;
-  transition: border-color 0.15s;
+  font-family: 'DM Sans', sans-serif;
   background: #fff;
-  color: #0d0d0d; 
+  color: #0d0d0d;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.field input:focus { border-color: #e85d2f; }
-.field input::placeholder {color: #aaa;}
+.field input:focus {
+  border-color: #e85d2f;
+  box-shadow: 0 0 0 3px rgba(232,93,47,0.1);
+}
+.field input:disabled { background: #f0ede8; cursor: not-allowed; }
+.field input::placeholder { color: #aaa; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 
+/* BUTTON */
 .btn-submit {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   background: #e85d2f;
   color: #fff;
   border: none;
   border-radius: 8px;
   padding: 0.8rem;
+  font-family: 'DM Sans', sans-serif;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.1s;
   margin-top: 0.5rem;
 }
-.btn-submit:hover { background: #c44a1e; }
+.btn-submit:hover:not(:disabled) { background: #c44a1e; }
+.btn-submit:active:not(:disabled) { transform: scale(0.99); }
 .btn-submit:disabled { background: #d4cfc6; cursor: not-allowed; }
+
+/* SPINNER */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ALERTS */
 .alert {
   padding: 0.75rem 1rem;
   border-radius: 8px;
@@ -267,8 +397,10 @@ async function doRegister() {
   margin-bottom: 1.25rem;
   line-height: 1.5;
 }
-.alert-error { background: #fdf0ef; color: #c0392b; border: 1px solid #f5c6c2; }
+.alert-error   { background: #fdf0ef; color: #c0392b; border: 1px solid #f5c6c2; }
 .alert-success { background: #edf7f1; color: #2d7a4f; border: 1px solid #b8dfc8; }
+
+/* HINT */
 .hint {
   margin-top: 1.5rem;
   padding: 1rem;
@@ -276,7 +408,13 @@ async function doRegister() {
   border-radius: 8px;
   font-size: 0.78rem;
   color: #7a7468;
-  line-height: 1.7;
+  line-height: 1.8;
 }
 .hint strong { color: #0d0d0d; }
+
+/* RESPONSIVE */
+@media (max-width: 720px) {
+  .auth-page { grid-template-columns: 1fr; }
+  .panel-left { display: none; }
+}
 </style>

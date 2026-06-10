@@ -122,9 +122,9 @@ INSERT INTO vehicle_types (name, seat_layout_json, total_seats, floors) VALUES
 INSERT INTO users (phone_number, email, full_name, password_hash, role, is_active) VALUES
                                                                                        ('0398514436', 'admin@pamtravel.vn',   'Nguyễn Thùy Linh',  '$2b$10$F2JFjLqs3AuWb8v9uOTJx.Aaxk2GxlXlir/8xIz0TOUvJ50P.XM4a', 'ADMIN', TRUE),
                                                                                        ('0943560104', 'ckadmin@pamtravel.vn',   'Phạm Đức Anh',  '$2b$10$F2JFjLqs3AuWb8v9uOTJx.Aaxk2GxlXlir/8xIz0TOUvJ50P.XM4a', 'ADMIN', TRUE),
-                                                                                       ('0912345678', 'driver1@travel.com',   'Tài Văn Xế',  '$2b$10$BwZFmnRsbgKk/nh/LKQHH.yW/zuvFzT8RSDHsJvV1wHw3t7bY6gJS', 'DRIVER', TRUE),
-                                                                                       ('0923456789', 'driver2@travel.com',   'Lơ Thị Xe',   '$2b$10$BwZFmnRsbgKk/nh/LKQHH.yW/zuvFzT8RSDHsJvV1wHw3t7bY6gJS', 'DRIVER', TRUE),
-                                                                                       ('0956789012', 'khach1@gmail.com', 'Lê Thị Hường',   '$2b$10$vIrbWy1tyrHFEJJGYdQ6J.shfji4/tfscYpfO.zGdYWk5JrDlteq6', 'CUSTOMER',    TRUE);
+                                                                                       ('0912345678', 'driver1@travel.vn',   'Tài Văn Xế',  '$2b$10$BwZFmnRsbgKk/nh/LKQHH.yW/zuvFzT8RSDHsJvV1wHw3t7bY6gJS', 'DRIVER', TRUE),
+                                                                                       ('0923456789', 'driver2@travel.vn',   'Lơ Thị Xe',   '$2b$10$BwZFmnRsbgKk/nh/LKQHH.yW/zuvFzT8RSDHsJvV1wHw3t7bY6gJS', 'DRIVER', TRUE),
+                                                                                       ('0956789012', 'khach1@gmail.com', 'Lê Thị Hường',   '$2b$10$VXsMDOkOgzhfU8rieok3OOHWTk/CUeSDxrWfpifwcLTmocfUvW1ja', 'CUSTOMER',    TRUE);
 
 INSERT INTO vehicles (operator_id, vehicle_type_id, license_plate, name) VALUES
                                                                              (1, 1, '51B-11111', 'Limousine PT-01'),

@@ -39,15 +39,16 @@
             <div class="floor-grid">
               <template v-for="row in getRows(floor)" :key="row">
                 <div class="seat-row">
-                  <div
-                    v-for="seat in getSeatsInRow(floor, row)"
-                    :key="seat.seatId"
-                    :class="['seat', getSeatClass(seat)]"
-                    @click="toggleSeat(seat)"
-                    :title="seat.seatName"
-                  >
-                    {{ seat.seatName.split('-')[1] || seat.seatName }}
-                  </div>
+                  <template v-for="seat in getSeatsInRow(floor, row)" :key="seat.seatId">
+                    <div
+                      :class="['seat', getSeatClass(seat)]"
+                      @click="toggleSeat(seat)"
+                      :title="seat.seatName"
+                    >
+                      {{ seat.seatName.split('-')[1] || seat.seatName }}
+                    </div>
+                    <div v-if="hasAisleAfter(floor, seat.col)" class="aisle-spacer"></div>
+                  </template>
                 </div>
               </template>
             </div>
@@ -112,6 +113,7 @@ const error        = ref('')
 const booking      = ref(false)
 const selectedSeats = ref([])
 const trip         = ref(null)
+const stops        = ref([])
 
 const tripId = route.params.id
 
@@ -130,7 +132,7 @@ const totalPrice = computed(() => {
 
 onMounted(async () => {
   trip.value = JSON.parse(sessionStorage.getItem('selected_trip') || 'null')
-  await loadSeatMap()
+  await Promise.all([loadSeatMap(), loadStops()])
 
   // Polling mỗi 5 giây
   pollInterval = setInterval(loadSeatMap, 5000)
@@ -139,6 +141,15 @@ onMounted(async () => {
 onUnmounted(() => {
   if (pollInterval) clearInterval(pollInterval)
 })
+
+async function loadStops() {
+  try {
+    const res = await api.get(`/trips/${tripId}/stops`)
+    stops.value = res.data.stops
+  } catch (e) {
+    console.error('Không tải được danh sách điểm dừng', e)
+  }
+}
 
 async function loadSeatMap() {
   try {
@@ -168,7 +179,16 @@ function getRows(floor) {
 
 function getSeatsInRow(floor, row) {
   if (!seatData.value) return []
-  return seatData.value.seats.filter(s => s.floor === floor && s.row === row)
+  return seatData.value.seats
+    .filter(s => s.floor === floor && s.row === row)
+    .sort((a, b) => a.col - b.col)
+}
+
+function hasAisleAfter(floor, col) {
+  const layout = seatData.value?.layout
+  if (!layout) return false
+  const floorData = layout[`floor_${floor}`]
+  return floorData && floorData.aisle_after_col === col
 }
 
 function getSeatClass(seat) {
@@ -200,11 +220,14 @@ async function doBooking() {
   booking.value = true
 
   try {
+    const pickup = stops.value.find(s => s.type === 'PICKUP' || s.type === 'BOTH')
+    const dropoff = [...stops.value].reverse().find(s => s.type === 'DROPOFF' || s.type === 'BOTH')
+
     const res = await api.post('/bookings', {
       userId:          auth.user.id,
       tripId:          parseInt(tripId),
-      pickupStopId:    1,
-      dropoffStopId:   2,
+      pickupStopId:    pickup ? pickup.id : 1,
+      dropoffStopId:   dropoff ? dropoff.id : 2,
       selectedSeatIds: selectedSeats.value.map(s => s.seatId),
     })
 
@@ -293,6 +316,10 @@ function formatPrice(p) {
 }
 .floor-grid { display: flex; flex-direction: column; gap: 0.4rem; }
 .seat-row { display: flex; gap: 0.4rem; }
+.aisle-spacer {
+  width: 28px;
+  flex-shrink: 0;
+}
 
 .seat {
   width: 48px; height: 48px; border-radius: 8px;

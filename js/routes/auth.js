@@ -58,6 +58,7 @@ router.post('/register', async (req, res) => {
             loyaltyTier: user.loyalty_tier || 'STANDARD',
             totalTickets: user.total_tickets || 0,
             totalTrips: user.total_trips || 0,
+            hasPin: false,
         }
     });
 
@@ -105,6 +106,7 @@ router.post('/login', async (req, res) => {
         loyaltyTier: user.loyalty_tier || 'STANDARD',
         totalTickets: user.total_tickets || 0,
         totalTrips: user.total_trips || 0,
+        hasPin:        !!user.payment_pin,
       }
     });
 
@@ -149,7 +151,7 @@ router.put('/profile', async (req, res) => {
           avatar_url = ${avatarUrl || null}
       WHERE id = ${BigInt(userId)}
       RETURNING id, full_name, email, phone_number, role, avatar_url,
-                wallet_balance, loyalty_tier, total_tickets, total_trips
+                wallet_balance, loyalty_tier, total_tickets, total_trips, payment_pin
     `;
 
     if (!rows.length)
@@ -169,6 +171,7 @@ router.put('/profile', async (req, res) => {
         loyaltyTier: user.loyalty_tier || 'STANDARD',
         totalTickets: user.total_tickets || 0,
         totalTrips: user.total_trips || 0,
+        hasPin:        !!user.payment_pin,
       }
     });
   } catch (e) {

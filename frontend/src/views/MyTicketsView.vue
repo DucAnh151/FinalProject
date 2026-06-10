@@ -6,6 +6,7 @@
       <div class="nav-links">
         <RouterLink to="/">Trang chủ</RouterLink>
         <RouterLink to="/my-tickets">Vé của tôi</RouterLink>
+        <RouterLink to="/settings">Cài đặt</RouterLink>
       </div>
       <div class="nav-user">
         <span class="role-badge">{{ auth.user?.role }}</span>
@@ -150,18 +151,39 @@
             </div>
           </div>
 
-          <!-- Nút hủy vé (nếu PENDING hoặc CONFIRMED) -->
-          <div v-if="selectedBooking.status === 'CONFIRMED' || selectedBooking.status === 'PENDING'" class="cancel-section">
-            <div v-if="selectedBooking.status === 'CONFIRMED'" class="refund-note">
-              ⚠️ Hủy vé sẽ được hoàn lại <strong>90%</strong> số tiền (tương đương <strong>{{ formatPrice(selectedBooking.totalAmount * 0.9) }}</strong>) vào ví điện tử.
+          <!-- Nút hành động cho vé -->
+          <div v-if="selectedBooking.status === 'CONFIRMED' || selectedBooking.status === 'PENDING'" class="action-section">
+            <!-- PENDING: Thanh toán ngay / Hủy đơn -->
+            <div v-if="selectedBooking.status === 'PENDING'" class="pending-actions">
+              <button
+                class="btn-pay-now"
+                @click="payBooking(selectedBooking)"
+              >
+                Thanh toán ngay ({{ formatPrice(selectedBooking.totalAmount) }})
+              </button>
+              <button
+                class="btn-cancel-pending"
+                :disabled="cancelling"
+                @click="cancelBooking(selectedBooking)"
+              >
+                {{ cancelling ? 'Đang hủy...' : 'Hủy đặt vé (Không mất phí)' }}
+              </button>
             </div>
-            <button
-              class="btn-cancel-ticket"
-              :disabled="cancelling"
-              @click="cancelBooking(selectedBooking)"
-            >
-              {{ cancelling ? 'Đang hủy...' : 'HỦY VÉ & HOÀN TIỀN' }}
-            </button>
+
+            <!-- CONFIRMED: Hủy vé & Hoàn tiền 90% -->
+            <div v-else-if="selectedBooking.status === 'CONFIRMED'" class="confirmed-actions">
+              <div class="refund-note">
+                ⚠️ Vé đã thanh toán. Hủy vé sẽ được hoàn lại <strong>90%</strong> số tiền (tương đương <strong>{{ formatPrice(selectedBooking.totalAmount * 0.9) }}</strong>) vào tài khoản cá nhân.
+              </div>
+              <button
+                class="btn-cancel-ticket"
+                :disabled="cancelling"
+                @click="cancelBooking(selectedBooking)"
+              >
+                {{ cancelling ? 'Đang xử lý hủy...' : 'HỦY VÉ & NHẬN HOÀN TIỀN 90%' }}
+              </button>
+            </div>
+            
             <div v-if="cancelError" class="alert-error">{{ cancelError }}</div>
           </div>
         </div>
@@ -217,6 +239,25 @@ async function loadBookings() {
 function openDetail(booking) {
   selectedBooking.value = booking
   cancelError.value = ''
+}
+
+function payBooking(booking) {
+  const paymentData = {
+    bookingId: booking.id,
+    trip: {
+      origin: booking.origin,
+      destination: booking.destination,
+      departureTime: booking.departure,
+      operator: booking.trip?.operator || 'PAM Travel',
+    },
+    seats: booking.seatDetails.map(sd => ({
+      seatId: sd.seatId,
+      seatName: sd.seatName
+    })),
+    totalPrice: booking.totalAmount
+  }
+  sessionStorage.setItem('payment_data', JSON.stringify(paymentData))
+  router.push('/payment')
 }
 
 async function cancelBooking(booking) {
@@ -507,12 +548,54 @@ function logout() {
 .mono { font-family: 'DM Mono', monospace; font-size: 0.8rem; }
 .price-highlight { color: #e85d2f; font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; }
 
-/* Cancel Booking */
-.cancel-section {
+/* Action Section */
+.action-section {
   border-top: 1px dashed #d4cfc6;
   padding-top: 1.25rem;
   margin-top: 1.25rem;
 }
+.pending-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.btn-pay-now {
+  width: 100%;
+  background: #e85d2f;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-pay-now:hover {
+  background: #c44a1e;
+}
+.btn-cancel-pending {
+  width: 100%;
+  background: #ede9e1;
+  color: #7a7468;
+  border: 1px solid #d4cfc6;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-cancel-pending:hover:not(:disabled) {
+  background: #d4cfc6;
+  color: #0d0d0d;
+}
+.btn-cancel-pending:disabled {
+  background: #ede9e1;
+  color: #c0c0c0;
+  cursor: not-allowed;
+}
+
 .refund-note {
   background: #fdf0ef;
   color: #c0392b;

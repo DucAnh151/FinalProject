@@ -6,6 +6,7 @@
       <div class="nav-links">
         <RouterLink to="/">Trang chủ</RouterLink>
         <RouterLink to="/my-tickets">Vé của tôi</RouterLink>
+        <RouterLink to="/settings">Cài đặt</RouterLink>
         <RouterLink v-if="auth.isDriver" to="/driver">Soát vé</RouterLink>
         <RouterLink v-if="auth.isAdmin" to="/admin">Quản trị</RouterLink>
       </div>

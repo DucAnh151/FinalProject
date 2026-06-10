@@ -220,7 +220,7 @@ const pinSetOk        = ref(false)
 const errors          = ref({})
 
 const gateways = computed(() => [
-  { value: 'WALLET', name: `Ví điện tử (Số dư: ${formatPrice(auth.user?.walletBalance)})`, icon: '👛' },
+  { value: 'WALLET', name: `Tài khoản cá nhân (Số dư: ${formatPrice(auth.user?.walletBalance)})`, icon: '👛' },
   { value: 'VNPAY', name: 'VNPay',  icon: '🏦' },
   { value: 'MOMO',  name: 'MoMo',   icon: '💜' },
   { value: 'CARD',  name: 'Thẻ tín dụng', icon: '💳' },

@@ -85,6 +85,32 @@
           </div>
           <p class="panel-sub">Phần giảm giá theo hạng sẽ được nối ở phase loyalty.</p>
         </section>
+
+        <section class="panel">
+          <h2>Nạp tiền tài khoản cá nhân</h2>
+          <p class="panel-sub">Nạp tiền giả lập vào tài khoản để thực hiện mua vé.</p>
+
+          <div class="field">
+            <label>Số tiền nạp (đ)</label>
+            <input v-model.number="rechargeAmount" type="number" min="10000" placeholder="Nhập số tiền" />
+          </div>
+
+          <div class="quick-amounts">
+            <button v-for="amt in [50000, 100000, 200000, 500000]" :key="amt" type="button" @click="rechargeAmount = amt" class="btn-amt">
+              +{{ formatPrice(amt) }}
+            </button>
+          </div>
+
+          <div v-if="auth.user?.hasPin" class="field" style="margin-top: 1rem">
+            <label>Mã PIN thanh toán</label>
+            <input v-model="rechargePin" type="password" maxlength="6" placeholder="••••••" />
+          </div>
+
+          <div v-if="rechargeMsg" :class="['alert', rechargeOk ? 'ok' : 'fail']" style="margin-top: 1rem">{{ rechargeMsg }}</div>
+          <button class="btn-primary" style="margin-top: 1rem" :disabled="recharging || !rechargeAmount || rechargeAmount <= 0" @click="doRecharge">
+            {{ recharging ? 'Đang nạp...' : 'Nạp tiền ngay' }}
+          </button>
+        </section>
       </div>
     </main>
   </div>
@@ -116,6 +142,13 @@ const profileMsg = ref('')
 const profileOk = ref(false)
 const pinMsg = ref('')
 const pinOk = ref(false)
+
+// Recharge simulated account wallet
+const rechargeAmount = ref('')
+const rechargePin    = ref('')
+const recharging    = ref(false)
+const rechargeMsg    = ref('')
+const rechargeOk     = ref(false)
 
 function onAvatarChange(event) {
   const file = event.target.files?.[0]
@@ -159,6 +192,12 @@ async function savePin() {
   savingPin.value = true
   try {
     await api.post('/payments/set-pin', { userId: auth.user.id, pin: pin.value })
+    
+    // Update local store hasPin
+    const updatedUser = { ...auth.user }
+    updatedUser.hasPin = true
+    auth.setUser(updatedUser)
+
     pin.value = ''
     pinConfirm.value = ''
     pinMsg.value = 'Đã cập nhật PIN thanh toán.'
@@ -168,6 +207,39 @@ async function savePin() {
     pinOk.value = false
   } finally {
     savingPin.value = false
+  }
+}
+
+async function doRecharge() {
+  rechargeMsg.value = ''
+  if (!rechargeAmount.value || rechargeAmount.value < 10000) {
+    rechargeMsg.value = 'Số tiền nạp tối thiểu là 10.000đ.'
+    rechargeOk.value = false
+    return
+  }
+
+  recharging.value = true
+  try {
+    const res = await api.post('/payments/recharge', {
+      userId: auth.user.id,
+      amount: rechargeAmount.value,
+      pin: rechargePin.value
+    })
+
+    rechargeMsg.value = res.data.message
+    rechargeOk.value = true
+    rechargeAmount.value = ''
+    rechargePin.value = ''
+
+    // Cập nhật số dư mới trong store
+    const updatedUser = { ...auth.user }
+    updatedUser.walletBalance = res.data.walletBalance
+    auth.setUser(updatedUser)
+  } catch (e) {
+    rechargeMsg.value = e.response?.data?.error || 'Nạp tiền thất bại'
+    rechargeOk.value = false
+  } finally {
+    recharging.value = false
   }
 }
 
@@ -423,6 +495,31 @@ h1 {
 .tier-box span {
   color: #7a7468;
   font-size: 0.85rem;
+}
+
+.quick-amounts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.btn-amt {
+  background: #f5f2ec;
+  color: #0d0d0d;
+  border: 1px solid #d4cfc6;
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-amt:hover {
+  background: #ede9e1;
+  border-color: #e85d2f;
+  color: #e85d2f;
 }
 
 @media (max-width: 820px) {

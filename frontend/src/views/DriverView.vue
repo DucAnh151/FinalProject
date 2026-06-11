@@ -245,6 +245,9 @@
         </div>
 
         <div class="modal-body">
+          <!-- Toast thông báo -->
+          <div v-if="cashConfirmToast" class="toast-success">✓ {{ cashConfirmToast }}</div>
+          <div v-if="cashConfirmError" class="toast-error">✕ {{ cashConfirmError }}</div>
           <div v-if="loadingManifest" class="state-box">
             <div class="spinner"></div>
             <span>{{ ui.locale === 'vi' ? 'Đang tải danh sách hành khách...' : 'Loading passenger list...' }}</span>
@@ -255,6 +258,24 @@
           </div>
 
           <template v-else>
+            <div v-if="cashPendingBookings.length" class="cash-pending-section">
+              <div class="section-label">{{ ui.t.driver.confirmCash }}</div>
+              <div
+                v-for="cb in cashPendingBookings"
+                :key="cb.bookingId"
+                class="cash-pending-row"
+              >
+                <span>#{{ cb.bookingId }} · {{ cb.seatCount }} {{ ui.t.driver.passengers }} · {{ formatPrice(cb.totalAmount) }}</span>
+                <button
+                  class="btn-confirm-cash"
+                  :disabled="confirmingCash === cb.bookingId"
+                  @click="confirmCashPayment(cb.bookingId)"
+                >
+                  {{ confirmingCash === cb.bookingId ? ui.t.driver.confirmingCash : ui.t.driver.confirmCash }}
+                </button>
+              </div>
+            </div>
+
             <div class="manifest-summary">
               <span>{{ ui.t.driver.manifestTotal }} <strong>{{ manifest.length }} {{ ui.t.driver.passengers }}</strong></span>
               <span>{{ ui.t.driver.manifestCI }} <strong class="ci-count">{{ checkedInCount }} / {{ manifest.length }}</strong></span>
@@ -328,7 +349,11 @@ const loadingTrips = ref(false)
 const manifestModal   = ref(false)
 const selectedTrip    = ref(null)
 const manifest        = ref([])
+const cashPendingBookings = ref([])
 const loadingManifest = ref(false)
+const confirmingCash  = ref(null)
+const cashConfirmToast = ref('')
+const cashConfirmError = ref('')
 
 // ── Scanner ──
 const scannerTrip  = ref(null)
@@ -373,9 +398,11 @@ async function openManifest(trip) {
   manifestModal.value  = true
   loadingManifest.value = true
   manifest.value = []
+  cashPendingBookings.value = []
   try {
     const res = await api.get(`/admin/driver-manifest/${trip.id}`)
     manifest.value = res.data.manifest
+    cashPendingBookings.value = res.data.cashPendingBookings || []
   } catch {
     manifest.value = []
   } finally {
@@ -387,6 +414,25 @@ async function openManifest(trip) {
 function goToScanner(trip) {
   scannerTrip.value = trip
   mainView.value = 'scanner'
+}
+
+async function confirmCashPayment(bookingId) {
+  confirmingCash.value = bookingId
+  try {
+    await api.put(`/driver/bookings/${bookingId}/confirm-cash`, {
+      driverId: auth.user.id,
+    })
+    // Reload manifest để hiển thị QR mới phát hành
+    if (selectedTrip.value) await openManifest(selectedTrip.value)
+    // Toast thành công
+    cashConfirmToast.value = ui.t.driver.cashConfirmed
+    setTimeout(() => { cashConfirmToast.value = '' }, 4000)
+  } catch (e) {
+    cashConfirmError.value = e.response?.data?.error || 'Confirm failed'
+    setTimeout(() => { cashConfirmError.value = '' }, 4000)
+  } finally {
+    confirmingCash.value = null
+  }
 }
 
 // ── Check-in ──
@@ -490,6 +536,11 @@ function ticketLabel(status) {
     USED: ui.t.driver.ticketUsed,
     CANCELLED: ui.t.driver.ticketCancelled
   }[status] || '—'
+}
+
+function formatPrice(p) {
+  if (!p) return ui.locale === 'vi' ? '0đ' : '0 VND'
+  return new Intl.NumberFormat(ui.locale === 'vi' ? 'vi-VN' : 'en-US').format(p) + (ui.locale === 'vi' ? 'đ' : ' VND')
 }
 </script>
 
@@ -723,4 +774,59 @@ tbody td { padding: 0.8rem 1rem; font-size: 0.875rem; vertical-align: middle; }
 .tb-used      { background: rgba(45, 122, 79, 0.15); color: #2d7a4f; }
 .tb-cancelled { background: rgba(192, 57, 43, 0.15); color: #c0392b; }
 .tb-none      { background: var(--tag-bg); color: var(--muted); }
+
+.cash-pending-section {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: rgba(13, 110, 253, 0.08);
+  border: 1px solid rgba(13, 110, 253, 0.25);
+  border-radius: 8px;
+}
+.cash-pending-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  font-size: 0.85rem;
+}
+.btn-confirm-cash {
+  background: #0d6efd;
+  color: #fff;
+  border: none;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-confirm-cash:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-confirm-cash:hover:not(:disabled) { background: #0b5ed7; }
+
+/* Toast notifications */
+.toast-success {
+  background: rgba(45, 122, 79, 0.12);
+  border: 1px solid rgba(45, 122, 79, 0.35);
+  color: #2d7a4f;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  animation: fadeIn 0.3s ease;
+}
+.toast-error {
+  background: rgba(192, 57, 43, 0.1);
+  border: 1px solid rgba(192, 57, 43, 0.3);
+  color: #c0392b;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
 </style>

@@ -48,50 +48,54 @@
               </div>
             </div>
 
-            <div class="panel-title" style="margin-top: 1.75rem">{{ ui.t.payment.pinTitle }}</div>
-            <div class="pin-note">{{ ui.t.payment.pinNote }}</div>
+            <div v-if="selectedGateway === 'CASH'" class="cash-note">{{ ui.t.payment.cashNote }}</div>
 
-            <div class="pin-wrap">
-              <input
-                v-model="pin"
-                type="password"
-                maxlength="6"
-                placeholder="••••••"
-                class="pin-input"
-                :class="{ 'field-error': errors.pin }"
-                @keyup.enter="initPayment"
-              />
-            </div>
-            <span v-if="errors.pin" class="err-msg">{{ errors.pin }}</span>
+            <template v-if="selectedGateway !== 'CASH'">
+              <div class="panel-title" style="margin-top: 1.75rem">{{ ui.t.payment.pinTitle }}</div>
+              <div class="pin-note">{{ ui.t.payment.pinNote }}</div>
 
-            <!-- Set PIN nếu chưa có -->
-            <div class="set-pin-box">
-              <div class="set-pin-label">{{ ui.t.payment.setPinLabel }}</div>
-              <div class="set-pin-row">
+              <div class="pin-wrap">
                 <input
-                  v-model="newPin"
+                  v-model="pin"
                   type="password"
                   maxlength="6"
-                  :placeholder="ui.t.payment.setPinNewLabel"
-                  class="pin-input-sm"
+                  placeholder="••••••"
+                  class="pin-input"
+                  :class="{ 'field-error': errors.pin }"
+                  @keyup.enter="initPayment"
                 />
-                <button class="btn-set-pin" :disabled="settingPin" @click="setPin">
-                  {{ settingPin ? ui.t.payment.setPinSetting : ui.t.payment.setPinBtn }}
-                </button>
               </div>
-              <span v-if="pinSetMsg" :class="['set-pin-msg', pinSetOk ? 'ok' : 'fail']">
-                {{ pinSetMsg }}
-              </span>
-            </div>
+              <span v-if="errors.pin" class="err-msg">{{ errors.pin }}</span>
+
+              <!-- Set PIN nếu chưa có -->
+              <div class="set-pin-box">
+                <div class="set-pin-label">{{ ui.t.payment.setPinLabel }}</div>
+                <div class="set-pin-row">
+                  <input
+                    v-model="newPin"
+                    type="password"
+                    maxlength="6"
+                    :placeholder="ui.t.payment.setPinNewLabel"
+                    class="pin-input-sm"
+                  />
+                  <button class="btn-set-pin" :disabled="settingPin" @click="setPin">
+                    {{ settingPin ? ui.t.payment.setPinSetting : ui.t.payment.setPinBtn }}
+                  </button>
+                </div>
+                <span v-if="pinSetMsg" :class="['set-pin-msg', pinSetOk ? 'ok' : 'fail']">
+                  {{ pinSetMsg }}
+                </span>
+              </div>
+            </template>
 
             <div v-if="errors.general" class="alert-error">{{ errors.general }}</div>
 
             <button
               class="btn-primary"
-              :disabled="submitting || !pin || pin.length < 6"
+              :disabled="submitting || (selectedGateway !== 'CASH' && (!pin || pin.length < 6))"
               @click="initPayment"
             >
-              {{ submitting ? ui.t.payment.processing : ui.t.payment.confirmBtn }}
+              {{ submitting ? ui.t.payment.processing : (selectedGateway === 'CASH' ? ui.t.payment.cashBtn : ui.t.payment.confirmBtn) }}
             </button>
           </div>
 
@@ -132,13 +136,13 @@
             </button>
           </div>
 
-          <!-- STEP 3: Thành công -->
+          <!-- STEP 3: Thành công / chờ tiền mặt -->
           <div v-if="step === 3" class="success-block">
-            <div class="success-icon">✓</div>
-            <div class="success-title">{{ ui.t.payment.successTitle }}</div>
-            <div class="success-sub">{{ ui.t.payment.successSub }}</div>
+            <div :class="['success-icon', cashPending ? 'cash-icon' : '']">{{ cashPending ? '⏳' : '✓' }}</div>
+            <div class="success-title">{{ cashPending ? ui.t.payment.cashSuccessTitle : ui.t.payment.successTitle }}</div>
+            <div class="success-sub">{{ cashPending ? ui.t.payment.cashSuccessSub : ui.t.payment.successSub }}</div>
 
-            <div class="ticket-list-cards">
+            <div v-if="!cashPending" class="ticket-list-cards">
               <div v-for="ticket in tickets" :key="ticket.id" class="ticket-card-success">
                 <div class="ticket-header-success">{{ ui.t.payment.ticketLabel }}{{ ticket.id }}</div>
                 <div class="qr-box">
@@ -211,14 +215,19 @@ function loadPaymentData() {
   const bookStore = useBookingStore()
   if (bookStore.bookingId && bookStore.selectedTrip) {
     return {
-      bookingId: bookStore.bookingId,
-      trip:      bookStore.selectedTrip,
-      seats:     bookStore.seats,
+      bookingId:  bookStore.bookingId,
+      trip:       bookStore.selectedTrip,
+      seats:      bookStore.seats,
       totalPrice: bookStore.totalPrice,
     }
   }
   const saved = sessionStorage.getItem('payment_data')
-  if (saved) return JSON.parse(saved)
+  if (saved) {
+    const parsed = JSON.parse(saved)
+    // Normalize: đảm bảo bookingId luôn có (MyTicketsView lưu .id hoặc .bookingId)
+    if (!parsed.bookingId && parsed.id) parsed.bookingId = parsed.id
+    return parsed
+  }
   return null
 }
 
@@ -236,6 +245,7 @@ const newPin          = ref('')
 const devOtp          = ref('')
 const paymentId       = ref(null)
 const tickets         = ref([])
+const cashPending     = ref(false)
 const submitting      = ref(false)
 const settingPin      = ref(false)
 const pinSetMsg       = ref('')
@@ -244,22 +254,23 @@ const errors          = ref({})
 
 const gateways = computed(() => [
   { value: 'WALLET', name: `${ui.t.payment.walletGateway}${formatPrice(auth.user?.walletBalance)})`, icon: '👛' },
-  { value: 'VNPAY', name: ui.t.payment.vnpay,  icon: '🏦' },
-  { value: 'MOMO',  name: ui.t.payment.momo,   icon: '💜' },
-  { value: 'CARD',  name: ui.t.payment.card,   icon: '💳' },
+  { value: 'CASH',   name: ui.t.payment.cash,  icon: '💵' },
+  { value: 'VNPAY',  name: ui.t.payment.vnpay,  icon: '🏦' },
+  { value: 'MOMO',   name: ui.t.payment.momo,   icon: '💜' },
+  { value: 'CARD',   name: ui.t.payment.card,   icon: '💳' },
 ])
 
 async function setPin() {
   pinSetMsg.value = ''
   if (!newPin.value || newPin.value.length !== 6 || !/^\d+$/.test(newPin.value)) {
-    pinSetMsg.value = ui.value.t.settings.pinInvalid
+    pinSetMsg.value = ui.t.settings.pinInvalid
     pinSetOk.value = false
     return
   }
   settingPin.value = true
   try {
     await api.post('/payments/set-pin', { userId: auth.user.id, pin: newPin.value })
-    pinSetMsg.value = ui.value.t.payment.successTitle
+    pinSetMsg.value = ui.t.payment.successTitle
     pinSetOk.value = true
     newPin.value = ''
   } catch (e) {
@@ -272,34 +283,61 @@ async function setPin() {
 
 async function initPayment() {
   errors.value = {}
-  if (!pin.value || pin.value.length !== 6) {
-    errors.value.pin = ui.value.t.payment.errPin
+  const isCash = selectedGateway.value === 'CASH'
+
+  if (!isCash && (!pin.value || pin.value.length !== 6)) {
+    errors.value.pin = ui.t.payment.errPin
+    return
+  }
+
+  // Kiểm tra dữ liệu đặt vé
+  if (!paymentData.value?.bookingId) {
+    errors.value.general = ui.locale === 'vi'
+      ? 'Không tìm thấy đơn đặt vé. Vui lòng đặt lại vé.'
+      : 'Booking not found. Please book again.'
     return
   }
 
   submitting.value = true
   try {
-    const res = await api.post('/payments/initiate', {
+    const payload = {
       bookingId: paymentData.value.bookingId,
       userId:    auth.user.id,
       gateway:   selectedGateway.value,
-      pin:       pin.value,
-    })
+    }
+    if (!isCash) payload.pin = pin.value
+
+    const res = await api.post('/payments/initiate', payload)
+
+    if (res.data.paymentMethod === 'CASH') {
+      cashPending.value = true
+      step.value = 3
+      clearBookingSession()
+      return
+    }
 
     paymentId.value = res.data.paymentId
     devOtp.value    = res.data.otp || ''
     step.value      = 2
   } catch (e) {
-    errors.value.general = e.response?.data?.error || ui.value.t.payment.errConfirmFail
+    errors.value.general = e.response?.data?.error || ui.t.payment.errConfirmFail
   } finally {
     submitting.value = false
   }
 }
 
+function clearBookingSession() {
+  const bookStore = useBookingStore()
+  bookStore.clear()
+  sessionStorage.removeItem('current_booking')
+  sessionStorage.removeItem('payment_data')
+  sessionStorage.removeItem('booking_seats')
+}
+
 async function confirmPayment() {
   errors.value = {}
   if (!otp.value || otp.value.length !== 6) {
-    errors.value.otp = ui.value.t.payment.errOtp
+    errors.value.otp = ui.t.payment.errOtp
     return
   }
 
@@ -319,19 +357,13 @@ async function confirmPayment() {
       updatedUser.walletBalance = Math.max(0, updatedUser.walletBalance - paymentData.value.totalPrice)
     }
     if (res.data.loyaltyTier) {
-      updatedUser.loyaltyTier = res.data.loyaltyTier
+      updatedUser.loyaltyTier  = res.data.loyaltyTier
       updatedUser.totalTickets = res.data.totalTickets
     }
     auth.setUser(updatedUser)
-
-    // Xóa bookingStore + sessionStorage sau thanh toán
-    const bookStore = useBookingStore()
-    bookStore.clear()
-    sessionStorage.removeItem('current_booking')
-    sessionStorage.removeItem('payment_data')
-    sessionStorage.removeItem('booking_seats')
+    clearBookingSession()
   } catch (e) {
-    errors.value.general = e.response?.data?.error || ui.value.t.payment.errOtpFail
+    errors.value.general = e.response?.data?.error || ui.t.payment.errOtpFail
   } finally {
     submitting.value = false
   }
@@ -407,6 +439,16 @@ function formatPrice(p) {
   border-radius: 8px;
   font-size: 0.82rem;
   margin-bottom: 1rem;
+}
+.cash-note {
+  background: rgba(13, 110, 253, 0.1);
+  border: 1px solid rgba(13, 110, 253, 0.3);
+  color: var(--text);
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  margin-bottom: 1rem;
+  line-height: 1.5;
 }
 
 /* Gateway */
@@ -506,6 +548,7 @@ function formatPrice(p) {
   display: flex; align-items: center; justify-content: center;
   font-size: 1.8rem; margin: 0 auto 1rem;
 }
+.success-icon.cash-icon { background: #0d6efd; font-size: 1.6rem; }
 .success-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.8rem; letter-spacing: 1px; color: var(--text);

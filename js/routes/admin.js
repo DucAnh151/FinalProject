@@ -1,5 +1,6 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const { getDriverTrips, getDriverManifest } = require('./driver');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -184,114 +185,9 @@ router.get('/stats', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api/admin/driver-trips?driverId=xxx
-// Danh sách chuyến xe được phân công cho driver
+// Driver aliases (backward compat) — logic in /api/driver/*
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/driver-trips', async (req, res) => {
-  const { driverId } = req.query
-  if (!driverId) return res.status(400).json({ error: 'Thiếu driverId' })
+router.get('/driver-trips', getDriverTrips);
+router.get('/driver-manifest/:tripId', getDriverManifest);
 
-  try {
-    const trips = await prisma.trips.findMany({
-      where: { assigned_driver_id: BigInt(driverId) },
-      include: {
-        routes: {
-          include: {
-            provinces_routes_origin_province_idToprovinces:      true,
-            provinces_routes_destination_province_idToprovinces: true,
-          }
-        },
-        operators: true,
-        vehicles:  { include: { vehicle_types: true } },
-        // Đếm số hành khách CONFIRMED
-        bookings: {
-          where: { status: { in: ['CONFIRMED', 'CASH_PENDING'] } },
-          include: { booking_seats: true },
-        },
-      },
-      orderBy: { departure_time: 'asc' },
-    })
-
-    res.json(trips.map(t => {
-      const passengerCount = t.bookings.reduce(
-        (sum, b) => sum + b.booking_seats.length, 0
-      )
-      return {
-        id:             Number(t.id),
-        origin:         t.routes.provinces_routes_origin_province_idToprovinces.name,
-        destination:    t.routes.provinces_routes_destination_province_idToprovinces.name,
-        operator:       t.operators.name,
-        vehicleType:    t.vehicles.vehicle_types.name,
-        departureTime:  t.departure_time,
-        arrivalTime:    t.arrival_time,
-        status:         t.status,
-        passengerCount,
-      }
-    }))
-  } catch (e) {
-    console.error('Driver trips error:', e)
-    res.status(500).json({ error: 'Lỗi server' })
-  }
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/admin/driver-manifest/:tripId
-// Danh sách hành khách (manifest) của một chuyến xe
-// ─────────────────────────────────────────────────────────────────────────────
-router.get('/driver-manifest/:tripId', async (req, res) => {
-  const tripId = parseInt(req.params.tripId)
-  if (!tripId) return res.status(400).json({ error: 'tripId không hợp lệ' })
-
-  try {
-    const bookings = await prisma.bookings.findMany({
-      where: {
-        trip_id: BigInt(tripId),
-        status:  { in: ['CONFIRMED', 'CASH_PENDING'] },
-      },
-      include: {
-        booking_seats: {
-          include: { seats: true }
-        },
-        tickets: true,
-        route_stops_bookings_pickup_stop_idToroute_stops:  true,
-        route_stops_bookings_dropoff_stop_idToroute_stops: true,
-      },
-    })
-
-    const manifest = []
-
-    bookings.forEach(b => {
-      b.booking_seats.forEach(bs => {
-        // Tìm ticket tương ứng với booking_seat này
-        const ticket = b.tickets.find(
-          t => Number(t.booking_seat_id) === Number(bs.id)
-        )
-        manifest.push({
-          bookingId:      Number(b.id),
-          passengerName:  bs.passenger_name,
-          passengerPhone: bs.passenger_phone,
-          seatName:       bs.seats.seat_name,
-          floor:          bs.seats.floor_number,
-          pickupStop:     b.route_stops_bookings_pickup_stop_idToroute_stops?.stop_name  || '—',
-          dropoffStop:    b.route_stops_bookings_dropoff_stop_idToroute_stops?.stop_name || '—',
-          qrCode:         ticket?.qr_code   || null,
-          ticketStatus:   ticket?.status     || null,
-          ticketId:       ticket ? Number(ticket.id) : null,
-        })
-      })
-    })
-
-    // Sắp xếp theo tầng rồi tên ghế
-    manifest.sort((a, b) => {
-      if (a.floor !== b.floor) return a.floor - b.floor
-      return a.seatName.localeCompare(b.seatName)
-    })
-
-    res.json({ tripId, manifest })
-  } catch (e) {
-    console.error('Driver manifest error:', e)
-    res.status(500).json({ error: 'Lỗi server' })
-  }
-})
-
-module.exports = router
+module.exports = router;

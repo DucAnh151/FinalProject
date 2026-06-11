@@ -10,7 +10,7 @@
           <div class="page-title">{{ ui.t.tickets.title }}</div>
           <div class="page-sub">{{ ui.t.tickets.sub }}</div>
         </div>
-        <!-- Filter -->
+        <!-- Filter + Refresh -->
         <div class="filter-bar">
           <button
             v-for="f in filters"
@@ -19,6 +19,9 @@
             @click="activeFilter = f.value"
           >
             {{ f.label }}
+          </button>
+          <button class="btn-refresh" @click="loadBookings" :disabled="loading" :title="ui.locale === 'vi' ? 'Làm mới' : 'Refresh'">
+            {{ loading ? '...' : '↺' }}
           </button>
         </div>
       </div>
@@ -103,19 +106,28 @@
             <div class="section-label">{{ ui.t.tickets.ticketLabel }}</div>
             <div class="qr-list">
               <div
-                v-for="(seat, idx) in selectedBooking.seats"
-                :key="idx"
+                v-for="ticket in selectedBooking.tickets"
+                :key="ticket.id"
                 class="qr-item"
               >
-                <div class="qr-seat">{{ ui.t.payment.seats }} {{ seat }}</div>
+                <div class="qr-seat">{{ ui.t.payment.seats }} {{ seatNameForTicket(ticket) }}</div>
                 <div class="qr-box">
-                  <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(getQrCode(selectedBooking.id, idx))}`" alt="QR Vé" class="qr-img" />
+                  <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(ticket.qrCode)}`" alt="QR Vé" class="qr-img" />
                 </div>
-                <div class="qr-code-text">
-                  {{ getQrCode(selectedBooking.id, idx) }}
-                </div>
+                <div class="qr-code-text">{{ ticket.qrCode }}</div>
               </div>
             </div>
+          </div>
+
+          <div v-else-if="selectedBooking.status === 'CASH_PENDING'" class="cash-pending-box">
+            <div class="cash-pending-icon">⏳</div>
+            <div class="cash-pending-title">
+              {{ ui.locale === 'vi' ? 'Chờ xác nhận tiền mặt' : 'Awaiting Cash Confirmation' }}
+            </div>
+            <div class="cash-pending-text">{{ ui.t.tickets.cashPendingNote }}</div>
+            <button class="btn-check-status" @click="loadBookings">
+              {{ ui.locale === 'vi' ? '⟳ Kiểm tra trạng thái' : '⟳ Check Status' }}
+            </button>
           </div>
 
           <!-- Thông tin chuyến -->
@@ -140,7 +152,7 @@
           </div>
 
           <!-- Nút hành động cho vé -->
-          <div v-if="selectedBooking.status === 'CONFIRMED' || selectedBooking.status === 'PENDING'" class="action-section">
+          <div v-if="selectedBooking.status === 'CONFIRMED' || selectedBooking.status === 'PENDING' || selectedBooking.status === 'CASH_PENDING'" class="action-section">
             <!-- PENDING: Thanh toán ngay / Hủy đơn -->
             <div v-if="selectedBooking.status === 'PENDING'" class="pending-actions">
               <button
@@ -149,6 +161,17 @@
               >
                 {{ ui.t.tickets.payNow }} ({{ formatPrice(selectedBooking.totalAmount) }})
               </button>
+              <button
+                class="btn-cancel-pending"
+                :disabled="cancelling"
+                @click="cancelBooking(selectedBooking)"
+              >
+                {{ cancelling ? ui.t.tickets.cancellingFree : ui.t.tickets.cancelFree }}
+              </button>
+            </div>
+
+            <!-- CASH_PENDING: Hủy đơn -->
+            <div v-else-if="selectedBooking.status === 'CASH_PENDING'" class="pending-actions">
               <button
                 class="btn-cancel-pending"
                 :disabled="cancelling"
@@ -181,7 +204,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { useUiStore } from '../stores/uiStore'
@@ -199,11 +222,15 @@ const selectedBooking = ref(null)
 const cancelling      = ref(false)
 const cancelError     = ref('')
 
+// Polling để tự động refresh khi CASH_PENDING đang mở
+let cashPollInterval = null
+
 const filters = computed(() => [
-  { value: 'ALL',       label: ui.t.tickets.filterAll },
-  { value: 'CONFIRMED', label: ui.t.tickets.filterConf },
-  { value: 'PENDING',   label: ui.t.tickets.filterPend },
-  { value: 'CANCELLED', label: ui.t.tickets.filterCanc },
+  { value: 'ALL',          label: ui.t.tickets.filterAll },
+  { value: 'CONFIRMED',    label: ui.t.tickets.filterConf },
+  { value: 'PENDING',      label: ui.t.tickets.filterPend },
+  { value: 'CASH_PENDING', label: ui.t.tickets.filterCash },
+  { value: 'CANCELLED',    label: ui.t.tickets.filterCanc },
 ])
 
 const filteredBookings = computed(() => {
@@ -211,8 +238,32 @@ const filteredBookings = computed(() => {
   return bookings.value.filter(b => b.status === activeFilter.value)
 })
 
+// Tự động poll 15s khi đang xem booking CASH_PENDING
+watch(selectedBooking, (booking) => {
+  if (cashPollInterval) { clearInterval(cashPollInterval); cashPollInterval = null }
+  if (booking?.status === 'CASH_PENDING') {
+    cashPollInterval = setInterval(async () => {
+      await loadBookings()
+      // Cập nhật selectedBooking từ danh sách mới
+      const refreshed = bookings.value.find(b => b.id === booking.id)
+      if (refreshed) {
+        selectedBooking.value = refreshed
+        // Nếu đã chuyển sang CONFIRMED → dừng polling
+        if (refreshed.status === 'CONFIRMED') {
+          clearInterval(cashPollInterval)
+          cashPollInterval = null
+        }
+      }
+    }, 15000)
+  }
+})
+
 onMounted(async () => {
   await loadBookings()
+})
+
+onUnmounted(() => {
+  if (cashPollInterval) { clearInterval(cashPollInterval); cashPollInterval = null }
 })
 
 async function loadBookings() {
@@ -279,17 +330,25 @@ async function cancelBooking(booking) {
   }
 }
 
-// QR code text — format giống backend: PAM-{bookingId}-SEAT{idx+1}
-function getQrCode(bookingId, idx) {
-  return `PAM-${bookingId}-SEAT${idx + 1}`
+// Map ticket → seat name from seatDetails
+function seatNameForTicket(ticket) {
+  const parts = ticket.qrCode?.split('-')
+  if (parts?.length >= 3) {
+    const seatId = parts[2]
+    const sd = selectedBooking.value?.seatDetails?.find(s => String(s.seatId) === seatId)
+    if (sd?.seatName) return sd.seatName
+  }
+  const idx = selectedBooking.value?.tickets?.indexOf(ticket) ?? -1
+  return selectedBooking.value?.seats?.[idx] || '?'
 }
 
 function statusLabel(status) {
   const map = {
-    CONFIRMED: ui.t.tickets.statusConf,
-    PENDING:   ui.t.tickets.statusPend,
-    CANCELLED: ui.t.tickets.statusCanc,
-    COMPLETED: ui.t.tickets.statusComp,
+    CONFIRMED:    ui.t.tickets.statusConf,
+    PENDING:      ui.t.tickets.statusPend,
+    CASH_PENDING: ui.t.tickets.statusCash,
+    CANCELLED:    ui.t.tickets.statusCanc,
+    COMPLETED:    ui.t.tickets.statusComp,
   }
   return map[status] || status
 }
@@ -324,7 +383,7 @@ function formatPrice(p) {
 }
 .page-sub { font-size: 0.82rem; color: var(--muted); margin-top: 0.2rem; }
 
-.filter-bar { display: flex; gap: 0.4rem; }
+.filter-bar { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
 .filter-btn {
   background: var(--panel); border: 1.5px solid var(--line);
   border-radius: 20px; padding: 0.4rem 1rem;
@@ -332,6 +391,19 @@ function formatPrice(p) {
 }
 .filter-btn:hover { border-color: var(--text); color: var(--text); }
 .filter-btn.active { background: var(--text); border-color: var(--text); color: var(--page-bg); }
+.btn-refresh {
+  background: none;
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  padding: 0.4rem 0.85rem;
+  font-size: 1rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.btn-refresh:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* STATES */
 .loading-state {
@@ -375,6 +447,7 @@ function formatPrice(p) {
 .status-bar { width: 4px; flex-shrink: 0; }
 .status-confirmed { background: #2d7a4f; }
 .status-pending   { background: #f0a500; }
+.status-cash_pending { background: #0d6efd; }
 .status-cancelled { background: #c0392b; }
 .status-completed { background: var(--muted); }
 
@@ -402,6 +475,7 @@ function formatPrice(p) {
 }
 .badge-confirmed { background: rgba(45, 122, 79, 0.15); color: #2d7a4f; }
 .badge-pending   { background: rgba(240, 165, 0, 0.15); color: #f0a500; }
+.badge-cash_pending { background: rgba(13, 110, 253, 0.15); color: #0d6efd; }
 .badge-cancelled { background: rgba(192, 57, 43, 0.15); color: #c0392b; }
 .badge-completed { background: var(--tag-bg); color: var(--muted); }
 
@@ -488,6 +562,39 @@ function formatPrice(p) {
   font-family: var(--font-mono, monospace);
   max-width: 160px; text-align: center; word-break: break-all;
 }
+
+.cash-pending-box {
+  background: rgba(13, 110, 253, 0.07);
+  border: 1px solid rgba(13, 110, 253, 0.25);
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.cash-pending-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.cash-pending-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem; letter-spacing: 1px;
+  color: #0d6efd; margin-bottom: 0.5rem;
+}
+.cash-pending-text {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+.btn-check-status {
+  background: #0d6efd;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-check-status:hover { background: #0b5ed7; }
 
 .info-section {
   margin-bottom: 1.5rem;

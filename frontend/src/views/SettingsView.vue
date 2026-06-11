@@ -77,30 +77,63 @@
           <p class="panel-sub">{{ ui.t.settings.tierSub }}</p>
         </section>
 
-        <section class="panel">
+        <section class="panel panel-wide">
           <h2>{{ ui.t.settings.rechargeTitle }}</h2>
           <p class="panel-sub">{{ ui.t.settings.rechargeSub }}</p>
 
-          <div class="field">
-            <label>{{ ui.t.settings.amountLabel }}</label>
-            <input v-model.number="rechargeAmount" type="number" min="10000" :placeholder="ui.t.settings.amountPlaceholder" />
-          </div>
+          <div v-if="!topupOtpStep">
+            <div class="field">
+              <label>{{ ui.t.settings.amountLabel }}</label>
+              <input v-model.number="rechargeAmount" type="number" min="10000" :placeholder="ui.t.settings.amountPlaceholder" />
+            </div>
 
-          <div class="quick-amounts">
-            <button v-for="amt in [50000, 100000, 200000, 500000]" :key="amt" type="button" @click="rechargeAmount = amt" class="btn-amt">
-              +{{ formatPrice(amt) }}
+            <div class="quick-amounts">
+              <button v-for="amt in [50000, 100000, 200000, 500000]" :key="amt" type="button" @click="rechargeAmount = amt" class="btn-amt">
+                +{{ formatPrice(amt) }}
+              </button>
+            </div>
+
+            <div class="field" style="margin-top: 1rem">
+              <label>{{ ui.t.settings.pinLabel }}</label>
+              <input v-model="rechargePin" type="password" maxlength="6" placeholder="••••••" />
+            </div>
+
+            <div v-if="rechargeMsg" :class="['alert', rechargeOk ? 'ok' : 'fail']" style="margin-top: 1rem">{{ rechargeMsg }}</div>
+            <button class="btn-primary" style="margin-top: 1rem" :disabled="recharging || !rechargeAmount || rechargeAmount <= 0" @click="startTopup">
+              {{ recharging ? ui.t.settings.recharging : ui.t.settings.rechargeBtn }}
             </button>
           </div>
 
-          <div v-if="auth.user?.hasPin" class="field" style="margin-top: 1rem">
-            <label>{{ ui.t.settings.pinLabel }}</label>
-            <input v-model="rechargePin" type="password" maxlength="6" placeholder="••••••" />
+          <div v-else>
+            <div class="field">
+              <label>{{ ui.t.settings.otpTitle }}</label>
+              <input v-model="topupOtp" type="text" maxlength="6" placeholder="000000" />
+              <p v-if="devTopupOtp" class="panel-sub">Dev OTP: {{ devTopupOtp }}</p>
+            </div>
+            <div v-if="rechargeMsg" :class="['alert', rechargeOk ? 'ok' : 'fail']">{{ rechargeMsg }}</div>
+            <button class="btn-primary" :disabled="recharging || !topupOtp" @click="confirmTopup">
+              {{ recharging ? ui.t.settings.recharging : ui.t.settings.otpConfirmBtn }}
+            </button>
+            <button class="btn-secondary" type="button" @click="topupOtpStep = false">←</button>
           </div>
+        </section>
 
-          <div v-if="rechargeMsg" :class="['alert', rechargeOk ? 'ok' : 'fail']" style="margin-top: 1rem">{{ rechargeMsg }}</div>
-          <button class="btn-primary" style="margin-top: 1rem" :disabled="recharging || !rechargeAmount || rechargeAmount <= 0" @click="doRecharge">
-            {{ recharging ? ui.t.settings.recharging : ui.t.settings.rechargeBtn }}
-          </button>
+        <section class="panel panel-wide">
+          <h2>{{ ui.t.settings.walletHistory }}</h2>
+          <div v-if="loadingTx" class="panel-sub">{{ ui.t.tickets.loading }}</div>
+          <div v-else-if="!transactions.length" class="panel-sub">{{ ui.t.settings.noTransactions }}</div>
+          <div v-else class="tx-list">
+            <div v-for="tx in transactions" :key="tx.id" class="tx-row">
+              <div>
+                <strong>{{ txTypeLabel(tx.type) }}</strong>
+                <div class="tx-desc">{{ tx.description || '—' }}</div>
+                <div class="tx-date">{{ formatDatetime(tx.createdAt) }}</div>
+              </div>
+              <div :class="['tx-amount', tx.type === 'PAYMENT' ? 'neg' : 'pos']">
+                {{ tx.type === 'PAYMENT' ? '-' : '+' }}{{ formatPrice(tx.amount) }}
+              </div>
+            </div>
+          </div>
         </section>
       </div>
     </main>
@@ -108,7 +141,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/authStore'
 import { useUiStore } from '../stores/uiStore'
 import UserHeader from '../components/UserHeader.vue'
@@ -138,9 +171,110 @@ const pinOk = ref(false)
 // Recharge simulated account wallet
 const rechargeAmount = ref('')
 const rechargePin    = ref('')
-const recharging    = ref(false)
+const recharging     = ref(false)
 const rechargeMsg    = ref('')
 const rechargeOk     = ref(false)
+const topupOtpStep   = ref(false)
+const topupOtp       = ref('')
+const devTopupOtp    = ref('')
+const transactions   = ref([])
+const loadingTx      = ref(false)
+
+onMounted(() => {
+  loadWallet()
+})
+
+async function loadWallet() {
+  loadingTx.value = true
+  try {
+    const res = await api.get(`/wallet/${auth.user.id}`)
+    transactions.value = res.data.transactions || []
+    const updatedUser = { ...auth.user, walletBalance: res.data.balance }
+    auth.setUser(updatedUser)
+  } catch {
+    transactions.value = []
+  } finally {
+    loadingTx.value = false
+  }
+}
+
+function txTypeLabel(type) {
+  const map = {
+    TOPUP:   ui.t.settings.txTopup,
+    PAYMENT: ui.t.settings.txPayment,
+    REFUND:  ui.t.settings.txRefund,
+    BONUS:   ui.t.settings.txBonus,
+    DEPOSIT: ui.t.settings.txTopup,
+  }
+  return map[type] || type
+}
+
+async function startTopup() {
+  rechargeMsg.value = ''
+  if (!rechargeAmount.value || rechargeAmount.value < 10000) {
+    rechargeMsg.value = ui.t.settings.minAmount
+    rechargeOk.value = false
+    return
+  }
+  if (!rechargePin.value) {
+    rechargeMsg.value = ui.t.settings.pinLabel
+    rechargeOk.value = false
+    return
+  }
+
+  recharging.value = true
+  try {
+    const res = await api.post('/wallet/topup/initiate', {
+      userId: auth.user.id,
+      amount: rechargeAmount.value,
+      pin:    rechargePin.value,
+    })
+    devTopupOtp.value = res.data.otp || ''
+    topupOtpStep.value = true
+    rechargeMsg.value = ''
+  } catch (e) {
+    rechargeMsg.value = e.response?.data?.error || 'Top-up failed'
+    rechargeOk.value = false
+  } finally {
+    recharging.value = false
+  }
+}
+
+async function confirmTopup() {
+  rechargeMsg.value = ''
+  recharging.value = true
+  try {
+    const res = await api.post('/wallet/topup/confirm', {
+      userId: auth.user.id,
+      amount: rechargeAmount.value,
+      otp:    topupOtp.value,
+    })
+
+    rechargeMsg.value = res.data.message
+    rechargeOk.value = true
+    rechargeAmount.value = ''
+    rechargePin.value = ''
+    topupOtp.value = ''
+    topupOtpStep.value = false
+
+    const updatedUser = { ...auth.user, walletBalance: res.data.walletBalance }
+    auth.setUser(updatedUser)
+    await loadWallet()
+  } catch (e) {
+    rechargeMsg.value = e.response?.data?.error || 'Confirm failed'
+    rechargeOk.value = false
+  } finally {
+    recharging.value = false
+  }
+}
+
+function formatDatetime(dt) {
+  if (!dt) return ''
+  return new Date(dt).toLocaleString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
 
 function onAvatarChange(event) {
   const file = event.target.files?.[0]
@@ -199,39 +333,6 @@ async function savePin() {
     pinOk.value = false
   } finally {
     savingPin.value = false
-  }
-}
-
-async function doRecharge() {
-  rechargeMsg.value = ''
-  if (!rechargeAmount.value || rechargeAmount.value < 10000) {
-    rechargeMsg.value = ui.t.settings.minAmount
-    rechargeOk.value = false
-    return
-  }
-
-  recharging.value = true
-  try {
-    const res = await api.post('/payments/recharge', {
-      userId: auth.user.id,
-      amount: rechargeAmount.value,
-      pin: rechargePin.value
-    })
-
-    rechargeMsg.value = res.data.message
-    rechargeOk.value = true
-    rechargeAmount.value = ''
-    rechargePin.value = ''
-
-    // Cập nhật số dư mới trong store
-    const updatedUser = { ...auth.user }
-    updatedUser.walletBalance = res.data.walletBalance
-    auth.setUser(updatedUser)
-  } catch (e) {
-    rechargeMsg.value = e.response?.data?.error || 'Recharge failed'
-    rechargeOk.value = false
-  } finally {
-    recharging.value = false
   }
 }
 
@@ -463,6 +564,45 @@ h1 {
   background: var(--tag-bg);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.panel-wide {
+  grid-column: 1 / -1;
+}
+
+.tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.tx-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: var(--input-bg);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.tx-desc { color: var(--muted); font-size: 0.78rem; margin-top: 0.15rem; }
+.tx-date { color: var(--muted); font-size: 0.72rem; margin-top: 0.15rem; }
+.tx-amount { font-weight: 700; white-space: nowrap; }
+.tx-amount.pos { color: #2d7a4f; }
+.tx-amount.neg { color: #c0392b; }
+
+.btn-secondary {
+  width: 100%;
+  margin-top: 0.5rem;
+  min-height: 40px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--muted);
 }
 
 @media (max-width: 820px) {

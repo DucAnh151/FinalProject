@@ -216,6 +216,11 @@ const vi = {
     vnpay:          'VNPay',
     momo:           'MoMo',
     card:           'Thẻ tín dụng',
+    cash:           'Tiền mặt (trả tài xế)',
+    cashNote:       'Thanh toán trực tiếp cho tài xế khi lên xe. Vé QR sẽ được phát sau khi tài xế xác nhận.',
+    cashBtn:        'XÁC NHẬN THANH TOÁN TIỀN MẶT →',
+    cashSuccessTitle: 'ĐÃ GHI NHẬN TIỀN MẶT',
+    cashSuccessSub:   'Vui lòng thanh toán cho tài xế khi lên xe. Vé QR sẽ hiện sau khi tài xế xác nhận.',
   },
 
   // My Tickets
@@ -250,8 +255,11 @@ const vi = {
     cancelSuccess:  'Hủy vé thành công! Số tiền hoàn lại đã được cộng vào ví của bạn (nếu có).',
     statusConf:   'Đã xác nhận',
     statusPend:   'Chờ thanh toán',
+    statusCash:   'Chờ xác nhận tiền mặt',
     statusCanc:   'Đã hủy',
     statusComp:   'Hoàn thành',
+    filterCash:   'Tiền mặt',
+    cashPendingNote: 'Đơn đang chờ tài xế xác nhận đã thu tiền. Vé QR sẽ hiện sau khi xác nhận.',
   },
 
   // Settings
@@ -288,6 +296,14 @@ const vi = {
     minAmount:      'Số tiền nạp tối thiểu là 10.000đ.',
     pinInvalid:     'PIN phải gồm đúng 6 chữ số.',
     pinMismatch:    'PIN nhập lại không khớp.',
+    walletHistory:  'Lịch sử giao dịch',
+    noTransactions: 'Chưa có giao dịch nào',
+    otpTitle:       'Nhập OTP nạp tiền',
+    otpConfirmBtn:  'Xác nhận nạp tiền',
+    txTopup:        'Nạp tiền',
+    txPayment:      'Thanh toán vé',
+    txRefund:       'Hoàn tiền',
+    txBonus:        'Thưởng',
   },
 
   // Admin
@@ -390,6 +406,9 @@ const vi = {
     ticketIssued:  'Đã phát',
     ticketUsed:    'Đã check-in',
     ticketCancelled:'Đã hủy',
+    confirmCash:    'Xác nhận đã thu tiền',
+    confirmingCash: 'Đang xác nhận...',
+    cashConfirmed:  'Đã xác nhận tiền mặt, vé QR đã phát hành',
     infoPassenger: 'Hành khách',
     infoPhone:     'Số điện thoại',
     infoSeat:      'Ghế',
@@ -631,6 +650,11 @@ const en = {
     vnpay:          'VNPay',
     momo:           'MoMo',
     card:           'Credit Card',
+    cash:           'Cash (pay driver)',
+    cashNote:       'Pay the driver when boarding. QR tickets are issued after driver confirmation.',
+    cashBtn:        'CONFIRM CASH PAYMENT →',
+    cashSuccessTitle: 'CASH PAYMENT RECORDED',
+    cashSuccessSub:   'Pay the driver when boarding. QR tickets appear after driver confirmation.',
   },
 
   tickets: {
@@ -664,8 +688,11 @@ const en = {
     cancelSuccess:  'Booking cancelled! Refund has been added to your wallet (if applicable).',
     statusConf:   'Confirmed',
     statusPend:   'Pending payment',
+    statusCash:   'Awaiting cash confirm',
     statusCanc:   'Cancelled',
     statusComp:   'Completed',
+    filterCash:   'Cash pending',
+    cashPendingNote: 'Waiting for driver to confirm cash payment. QR tickets will appear after confirmation.',
   },
 
   settings: {
@@ -701,6 +728,14 @@ const en = {
     minAmount:      'Minimum top-up is 10,000 VND.',
     pinInvalid:     'PIN must be exactly 6 digits.',
     pinMismatch:    'PINs do not match.',
+    walletHistory:  'Transaction history',
+    noTransactions: 'No transactions yet',
+    otpTitle:       'Enter top-up OTP',
+    otpConfirmBtn:  'Confirm top-up',
+    txTopup:        'Top-up',
+    txPayment:      'Ticket payment',
+    txRefund:       'Refund',
+    txBonus:        'Bonus',
   },
 
   admin: {
@@ -801,6 +836,9 @@ const en = {
     ticketIssued:  'Issued',
     ticketUsed:    'Checked in',
     ticketCancelled:'Cancelled',
+    confirmCash:    'Confirm cash received',
+    confirmingCash: 'Confirming...',
+    cashConfirmed:  'Cash confirmed, QR tickets issued',
     infoPassenger: 'Passenger',
     infoPhone:     'Phone',
     infoSeat:      'Seat',

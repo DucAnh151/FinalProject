@@ -34,6 +34,12 @@ app.use('/api/tickets', ticketRoutes)
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
 
+const driverRoutes = require('./routes/driver');
+app.use('/api/driver', driverRoutes);
+
+const walletRoutes = require('./routes/wallet');
+app.use('/api/wallet', walletRoutes);
+
 const landingRoutes = require('./routes/landing');
 app.use('/api/landing', landingRoutes);
 

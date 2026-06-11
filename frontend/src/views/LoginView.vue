@@ -4,35 +4,44 @@
     <div class="panel-left">
       <div class="brand">PAM TRAVEL</div>
       <div class="tagline">
-        <h2>ĐẶT VÉ<br><span>THÔNG MINH</span></h2>
-        <p>Hệ thống đặt vé xe khách trực tuyến. Tìm chuyến, chọn ghế, thanh toán an toàn.</p>
+        <h2>{{ ui.isEn ? 'SMART' : 'ĐẶT VÉ' }}<br><span>{{ ui.isEn ? 'TICKETING' : 'THÔNG MINH' }}</span></h2>
+        <p>{{ ui.isEn ? 'Online bus ticketing system. Find trips, choose seats, pay securely.' : 'Hệ thống đặt vé xe khách trực tuyến. Tìm chuyến, chọn ghế, thanh toán an toàn.' }}</p>
       </div>
       <div class="features">
-        <div class="feature"><span class="dot"></span> Sơ đồ ghế thời gian thực</div>
-        <div class="feature"><span class="dot"></span> Thanh toán PIN + OTP</div>
-        <div class="feature"><span class="dot"></span> Vé điện tử QR Code</div>
-        <div class="feature"><span class="dot"></span> Soát vé tự động</div>
+        <div class="feature"><span class="dot"></span> {{ ui.isEn ? 'Real-time seat map' : 'Sơ đồ ghế thời gian thực' }}</div>
+        <div class="feature"><span class="dot"></span> {{ ui.isEn ? 'PIN + OTP checkout' : 'Thanh toán PIN + OTP' }}</div>
+        <div class="feature"><span class="dot"></span> {{ ui.isEn ? 'QR code e-tickets' : 'Vé điện tử QR Code' }}</div>
+        <div class="feature"><span class="dot"></span> {{ ui.isEn ? 'Automated check-in' : 'Soát vé tự động' }}</div>
       </div>
     </div>
 
     <!-- RIGHT PANEL — form -->
     <div class="panel-right">
+      <div class="lang-switch">
+        <button class="lang-btn" @click="ui.toggleLocale()">
+          {{ ui.locale === 'vi' ? 'EN' : 'VI' }}
+        </button>
+        <button class="lang-btn theme-btn" @click="ui.toggleDark()">
+          {{ ui.isDark ? '☀' : '◐' }}
+        </button>
+      </div>
+
       <div class="form-box">
         <div class="tabs">
-          <div :class="['tab', { active: tab === 'login' }]"    @click="switchTab('login')">Đăng nhập</div>
-          <div :class="['tab', { active: tab === 'register' }]" @click="switchTab('register')">Đăng ký</div>
+          <div :class="['tab', { active: tab === 'login' }]"    @click="switchTab('login')">{{ ui.t.auth.login }}</div>
+          <div :class="['tab', { active: tab === 'register' }]" @click="switchTab('register')">{{ ui.t.auth.register }}</div>
         </div>
 
         <!-- ── LOGIN ── -->
         <div v-if="tab === 'login'">
-          <div class="form-title">CHÀO MỪNG</div>
-          <div class="form-sub">Đăng nhập bằng email hoặc số điện thoại</div>
+          <div class="form-title">{{ ui.t.auth.loginTitle }}</div>
+          <div class="form-sub">{{ ui.t.auth.loginSub }}</div>
 
           <div v-if="error"   class="alert alert-error">{{ error }}</div>
           <div v-if="success" class="alert alert-success">{{ success }}</div>
 
           <div class="field">
-            <label>Email hoặc Số điện thoại</label>
+            <label>{{ ui.t.auth.identifier }}</label>
             <input
               v-model.trim="loginForm.identifier"
               type="text"
@@ -43,7 +52,7 @@
             />
           </div>
           <div class="field">
-            <label>Mật khẩu</label>
+            <label>{{ ui.t.auth.password }}</label>
             <input
               v-model="loginForm.password"
               type="password"
@@ -56,11 +65,11 @@
 
           <button class="btn-submit" :disabled="loading" @click="doLogin">
             <span v-if="loading" class="spinner"></span>
-            <span>{{ loading ? 'Đang đăng nhập...' : 'ĐĂNG NHẬP' }}</span>
+            <span>{{ loading ? ui.t.auth.loggingIn : ui.t.auth.loginBtn }}</span>
           </button>
 
           <div class="hint">
-            <strong>Tài khoản thử nghiệm:</strong><br>
+            <strong>{{ ui.isEn ? 'Test Accounts:' : 'Tài khoản thử nghiệm:' }}</strong><br>
             👤 admin@pamtravel.vn / admin123 (ADMIN)<br>
             👤 driver1@travel.com / driver123 (DRIVER)<br>
             👤 khach1@gmail.com / khach123 (CUSTOMER)
@@ -69,14 +78,14 @@
 
         <!-- ── REGISTER ── -->
         <div v-if="tab === 'register'">
-          <div class="form-title">TẠO TÀI KHOẢN</div>
-          <div class="form-sub">Đăng ký tài khoản hành khách mới</div>
+          <div class="form-title">{{ ui.t.auth.registerTitle }}</div>
+          <div class="form-sub">{{ ui.t.auth.registerSub }}</div>
 
           <div v-if="error"   class="alert alert-error">{{ error }}</div>
           <div v-if="success" class="alert alert-success">{{ success }}</div>
 
           <div class="field">
-            <label>Họ và tên <span class="req">*</span></label>
+            <label>{{ ui.t.auth.fullName }} <span class="req">*</span></label>
             <input
               v-model.trim="regForm.fullName"
               type="text"
@@ -86,7 +95,7 @@
           </div>
           <div class="field-row">
             <div class="field">
-              <label>Số điện thoại</label>
+              <label>{{ ui.t.auth.phone }}</label>
               <input
                 v-model.trim="regForm.phone"
                 type="tel"
@@ -95,7 +104,7 @@
               />
             </div>
             <div class="field">
-              <label>Email</label>
+              <label>{{ ui.t.auth.email }}</label>
               <input
                 v-model.trim="regForm.email"
                 type="email"
@@ -106,7 +115,7 @@
           </div>
           <div class="field-row" style="margin-top: 0">
             <div class="field">
-              <label>Mật khẩu <span class="req">*</span></label>
+              <label>{{ ui.t.auth.password }} <span class="req">*</span></label>
               <input
                 v-model="regForm.password"
                 type="password"
@@ -115,7 +124,7 @@
               />
             </div>
             <div class="field">
-              <label>Xác nhận mật khẩu <span class="req">*</span></label>
+              <label>{{ ui.t.auth.confirmPassword }} <span class="req">*</span></label>
               <input
                 v-model="regForm.confirm"
                 type="password"
@@ -128,7 +137,7 @@
 
           <button class="btn-submit" :disabled="loading" @click="doRegister" style="margin-top:1.25rem">
             <span v-if="loading" class="spinner"></span>
-            <span>{{ loading ? 'Đang đăng ký...' : 'TẠO TÀI KHOẢN' }}</span>
+            <span>{{ loading ? ui.t.auth.registering : ui.t.auth.registerBtn }}</span>
           </button>
         </div>
 
@@ -141,10 +150,12 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useUiStore } from '../stores/uiStore'
 
 const router = useRouter()
 const route  = useRoute()
 const auth   = useAuthStore()
+const ui     = useUiStore()
 
 const tab     = ref('login')
 const loading = ref(false)
@@ -184,7 +195,7 @@ function redirectAfterLogin() {
   if (redirect && redirect !== '/login') return router.push(redirect)
   if (auth.isAdmin)  return router.push('/admin')
   if (auth.isDriver) return router.push('/driver')
-  router.push('/home')
+  router.push('/')  // Customer → LandingView (trang chủ thống nhất)
 }
 
 // ── ĐĂNG NHẬP ──
@@ -193,17 +204,17 @@ async function doLogin() {
   success.value = ''
 
   const { identifier, password } = loginForm.value
-  if (!identifier) { error.value = 'Vui lòng nhập email hoặc số điện thoại'; return }
-  if (!password)   { error.value = 'Vui lòng nhập mật khẩu'; return }
+  if (!identifier) { error.value = ui.t.auth.noIdentifier; return }
+  if (!password)   { error.value = ui.t.auth.noPassword; return }
 
   loading.value = true
   try {
     await auth.login(identifier, password)
     const name = auth.user.fullName || auth.user.phone || auth.user.email
-    success.value = `✅ Xin chào ${name}! Đang chuyển trang...`
+    success.value = ui.locale === 'vi' ? `✅ Xin chào ${name}! Đang chuyển trang...` : `✅ Hello ${name}! Redirecting...`
     setTimeout(redirectAfterLogin, 700)
   } catch (e) {
-    error.value = e.response?.data?.error || 'Đăng nhập thất bại. Vui lòng thử lại.'
+    error.value = e.response?.data?.error || (ui.locale === 'vi' ? 'Đăng nhập thất bại. Vui lòng thử lại.' : 'Login failed. Please try again.')
   } finally {
     loading.value = false
   }
@@ -215,23 +226,23 @@ async function doRegister() {
   success.value = ''
 
   const { fullName, phone, email, password, confirm } = regForm.value
-  if (!fullName)            { error.value = 'Vui lòng nhập họ và tên'; return }
-  if (!phone && !email)     { error.value = 'Vui lòng nhập số điện thoại hoặc email'; return }
-  if (password.length < 6)  { error.value = 'Mật khẩu tối thiểu 6 ký tự'; return }
-  if (password !== confirm) { error.value = 'Mật khẩu xác nhận không khớp'; return }
+  if (!fullName)            { error.value = ui.t.auth.noFullName; return }
+  if (!phone && !email)     { error.value = ui.t.auth.noContact; return }
+  if (password.length < 6)  { error.value = ui.t.auth.shortPassword; return }
+  if (password !== confirm) { error.value = ui.t.auth.passwordMismatch; return }
 
   loading.value = true
   try {
     await auth.register(fullName, phone || null, email || null, password)
-    success.value = '✅ Tạo tài khoản thành công! Chuyển sang đăng nhập...'
+    success.value = ui.locale === 'vi' ? '✅ Tạo tài khoản thành công! Chuyển sang đăng nhập...' : '✅ Account created! Switching to login...'
     setTimeout(() => {
       loginForm.value.identifier = phone || email
       regForm.value = { fullName: '', phone: '', email: '', password: '', confirm: '' }
       switchTab('login')
-      success.value = '✅ Tài khoản đã tạo. Vui lòng đăng nhập.'
+      success.value = ui.locale === 'vi' ? '✅ Tài khoản đã tạo. Vui lòng đăng nhập.' : '✅ Account created. Please log in.'
     }, 1200)
   } catch (e) {
-    error.value = e.response?.data?.error || 'Đăng ký thất bại. Vui lòng thử lại.'
+    error.value = e.response?.data?.error || (ui.locale === 'vi' ? 'Đăng ký thất bại. Vui lòng thử lại.' : 'Registration failed. Please try again.')
   } finally {
     loading.value = false
   }
@@ -289,29 +300,52 @@ async function doRegister() {
 
 /* RIGHT */
 .panel-right {
-  background: #f5f2ec;
+  background: var(--page-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 3rem 2rem;
+  position: relative;
+}
+.lang-switch {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+}
+.lang-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.lang-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .form-box { width: 100%; max-width: 400px; }
 
 /* TABS */
-.tabs { display: flex; border-bottom: 2px solid #d4cfc6; margin-bottom: 2rem; }
+.tabs { display: flex; border-bottom: 2px solid var(--line); margin-bottom: 2rem; }
 .tab {
   padding: 0.75rem 1.5rem;
   font-size: 0.88rem;
   font-weight: 600;
-  color: #7a7468;
+  color: var(--muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
   transition: all 0.15s;
   user-select: none;
 }
-.tab:hover:not(.active) { color: #0d0d0d; }
-.tab.active { color: #e85d2f; border-bottom-color: #e85d2f; }
+.tab:hover:not(.active) { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* FORM */
 .form-title {
@@ -319,10 +353,10 @@ async function doRegister() {
   font-size: 2rem;
   letter-spacing: 1px;
   margin-bottom: 0.35rem;
-  color: #0d0d0d;
+  color: var(--text);
 }
-.form-sub { font-size: 0.83rem; color: #7a7468; margin-bottom: 1.75rem; }
-.req { color: #e85d2f; }
+.form-sub { font-size: 0.83rem; color: var(--muted); margin-bottom: 1.75rem; }
+.req { color: var(--accent); }
 
 .field { margin-bottom: 1.1rem; }
 .field label {
@@ -331,26 +365,26 @@ async function doRegister() {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #7a7468;
+  color: var(--muted);
   margin-bottom: 0.4rem;
 }
 .field input {
   width: 100%;
-  border: 1.5px solid #d4cfc6;
+  border: 1.5px solid var(--line);
   border-radius: 8px;
   padding: 0.7rem 1rem;
   font-size: 0.9rem;
   font-family: 'DM Sans', sans-serif;
-  background: #fff;
-  color: #0d0d0d;
+  background: var(--panel);
+  color: var(--text);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .field input:focus {
-  border-color: #e85d2f;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(232,93,47,0.1);
 }
-.field input:disabled { background: #f0ede8; cursor: not-allowed; }
+.field input:disabled { background: var(--page-bg); cursor: not-allowed; }
 .field input::placeholder { color: #aaa; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 
@@ -361,7 +395,7 @@ async function doRegister() {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: #e85d2f;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -373,9 +407,9 @@ async function doRegister() {
   transition: background 0.15s, transform 0.1s;
   margin-top: 0.5rem;
 }
-.btn-submit:hover:not(:disabled) { background: #c44a1e; }
+.btn-submit:hover:not(:disabled) { background: var(--accent-hover); }
 .btn-submit:active:not(:disabled) { transform: scale(0.99); }
-.btn-submit:disabled { background: #d4cfc6; cursor: not-allowed; }
+.btn-submit:disabled { background: var(--line); cursor: not-allowed; }
 
 /* SPINNER */
 .spinner {
@@ -404,13 +438,13 @@ async function doRegister() {
 .hint {
   margin-top: 1.5rem;
   padding: 1rem;
-  background: #ede9e1;
+  background: var(--tag-bg);
   border-radius: 8px;
   font-size: 0.78rem;
-  color: #7a7468;
+  color: var(--muted);
   line-height: 1.8;
 }
-.hint strong { color: #0d0d0d; }
+.hint strong { color: var(--text); }
 
 /* RESPONSIVE */
 @media (max-width: 720px) {

@@ -1,106 +1,89 @@
 <template>
   <div class="settings-page">
-    <nav class="navbar">
-      <RouterLink to="/" class="nav-logo">PAM TRAVEL</RouterLink>
-      <div class="nav-links">
-        <RouterLink v-if="!auth.isAdmin" to="/home">Trang chủ</RouterLink>
-        <RouterLink v-if="!auth.isAdmin" to="/my-tickets">Vé của tôi</RouterLink>
-        <RouterLink v-if="auth.isAdmin" to="/admin">Quản trị</RouterLink>
-      </div>
-      <div class="nav-user">
-        <div class="user-trigger" @click.stop="showUserDropdown = !showUserDropdown">
-          <span class="role-badge">{{ auth.user?.role }}</span>
-          <span class="username">{{ auth.user?.fullName || auth.user?.email }} ▼</span>
-        </div>
-        <div v-if="showUserDropdown" class="dropdown-menu">
-          <RouterLink to="/settings" class="dropdown-item">⚙ Cài đặt tài khoản</RouterLink>
-          <button class="dropdown-item btn-logout-item" @click="logout">🚪 Đăng xuất</button>
-        </div>
-      </div>
-    </nav>
+    <UserHeader />
 
     <main class="content">
       <header class="page-head">
         <div>
-          <h1>Cài đặt cá nhân</h1>
-          <p>Quản lý hồ sơ, ảnh đại diện và mã PIN thanh toán.</p>
+          <h1>{{ ui.t.settings.title }}</h1>
+          <p>{{ ui.t.settings.sub }}</p>
         </div>
         <div class="wallet-chip">
-          <span>Số dư ví</span>
+          <span>{{ ui.t.settings.walletLabel }}</span>
           <strong>{{ formatPrice(auth.user?.walletBalance || 0) }}</strong>
         </div>
       </header>
 
       <div class="settings-grid">
         <section class="panel">
-          <h2>Thông tin tài khoản</h2>
+          <h2>{{ ui.t.settings.profileTitle }}</h2>
           <div class="avatar-row">
             <img :src="profile.avatarUrl || fallbackAvatar" alt="Ảnh đại diện" />
             <div>
               <label class="upload-btn">
-                Chọn ảnh
+                {{ ui.t.settings.chooseAvatar }}
                 <input type="file" accept="image/*" @change="onAvatarChange" />
               </label>
-              <p>Ảnh được lưu vào hồ sơ dưới dạng dữ liệu ảnh demo.</p>
+              <p>{{ ui.locale === 'vi' ? 'Ảnh được lưu vào hồ sơ dưới dạng dữ liệu ảnh demo.' : 'Avatar is saved in profile as demo image data.' }}</p>
             </div>
           </div>
 
           <div class="field">
-            <label>Họ và tên</label>
+            <label>{{ ui.t.settings.fullName }}</label>
             <input v-model="profile.fullName" type="text" />
           </div>
           <div class="field-row">
             <div class="field">
-              <label>Số điện thoại</label>
+              <label>{{ ui.t.settings.phone }}</label>
               <input v-model="profile.phone" type="tel" />
             </div>
             <div class="field">
-              <label>Email</label>
+              <label>{{ ui.t.settings.email }}</label>
               <input v-model="profile.email" type="email" />
             </div>
           </div>
 
           <div v-if="profileMsg" :class="['alert', profileOk ? 'ok' : 'fail']">{{ profileMsg }}</div>
           <button class="btn-primary" :disabled="savingProfile" @click="saveProfile">
-            {{ savingProfile ? 'Đang lưu...' : 'Lưu thông tin' }}
+            {{ savingProfile ? ui.t.settings.saving : ui.t.settings.saveProfile }}
           </button>
         </section>
 
         <section class="panel">
-          <h2>Mã PIN thanh toán</h2>
-          <p class="panel-sub">PIN gồm 6 chữ số, dùng khi thanh toán vé hoặc nạp tiền vào ví.</p>
+          <h2>{{ ui.t.settings.pinTitle }}</h2>
+          <p class="panel-sub">{{ ui.t.settings.pinSub }}</p>
 
           <div class="field">
-            <label>PIN mới</label>
+            <label>{{ ui.t.settings.newPin }}</label>
             <input v-model="pin" type="password" maxlength="6" inputmode="numeric" placeholder="••••••" />
           </div>
           <div class="field">
-            <label>Nhập lại PIN</label>
+            <label>{{ ui.t.settings.confirmPin }}</label>
             <input v-model="pinConfirm" type="password" maxlength="6" inputmode="numeric" placeholder="••••••" />
           </div>
 
           <div v-if="pinMsg" :class="['alert', pinOk ? 'ok' : 'fail']">{{ pinMsg }}</div>
           <button class="btn-primary" :disabled="savingPin" @click="savePin">
-            {{ savingPin ? 'Đang cập nhật...' : 'Cập nhật PIN' }}
+            {{ savingPin ? ui.t.settings.savingPin : ui.t.settings.savePin }}
           </button>
         </section>
 
         <section class="panel">
-          <h2>Phân hạng thân thiết</h2>
+          <h2>{{ ui.t.settings.tierTitle }}</h2>
           <div class="tier-box">
             <strong>{{ auth.user?.loyaltyTier || 'STANDARD' }}</strong>
-            <span>{{ auth.user?.totalTrips || 0 }} chuyến · {{ auth.user?.totalTickets || 0 }} vé</span>
+            <span>{{ auth.user?.totalTrips || 0 }} {{ ui.t.settings.trips }} · {{ auth.user?.totalTickets || 0 }} {{ ui.t.settings.tickets }}</span>
           </div>
-          <p class="panel-sub">Phần giảm giá theo hạng sẽ được nối ở phase loyalty.</p>
+          <p class="panel-sub">{{ ui.t.settings.tierSub }}</p>
         </section>
 
         <section class="panel">
-          <h2>Nạp tiền tài khoản cá nhân</h2>
-          <p class="panel-sub">Nạp tiền giả lập vào tài khoản để thực hiện mua vé.</p>
+          <h2>{{ ui.t.settings.rechargeTitle }}</h2>
+          <p class="panel-sub">{{ ui.t.settings.rechargeSub }}</p>
 
           <div class="field">
-            <label>Số tiền nạp (đ)</label>
-            <input v-model.number="rechargeAmount" type="number" min="10000" placeholder="Nhập số tiền" />
+            <label>{{ ui.t.settings.amountLabel }}</label>
+            <input v-model.number="rechargeAmount" type="number" min="10000" :placeholder="ui.t.settings.amountPlaceholder" />
           </div>
 
           <div class="quick-amounts">
@@ -110,13 +93,13 @@
           </div>
 
           <div v-if="auth.user?.hasPin" class="field" style="margin-top: 1rem">
-            <label>Mã PIN thanh toán</label>
+            <label>{{ ui.t.settings.pinLabel }}</label>
             <input v-model="rechargePin" type="password" maxlength="6" placeholder="••••••" />
           </div>
 
           <div v-if="rechargeMsg" :class="['alert', rechargeOk ? 'ok' : 'fail']" style="margin-top: 1rem">{{ rechargeMsg }}</div>
           <button class="btn-primary" style="margin-top: 1rem" :disabled="recharging || !rechargeAmount || rechargeAmount <= 0" @click="doRecharge">
-            {{ recharging ? 'Đang nạp...' : 'Nạp tiền ngay' }}
+            {{ recharging ? ui.t.settings.recharging : ui.t.settings.rechargeBtn }}
           </button>
         </section>
       </div>
@@ -125,13 +108,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { ref } from 'vue'
 import { useAuthStore } from '../stores/authStore'
+import { useUiStore } from '../stores/uiStore'
+import UserHeader from '../components/UserHeader.vue'
 import api from '../services/api'
 
-const router = useRouter()
 const auth = useAuthStore()
+const ui   = useUiStore()
 
 const fallbackAvatar = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" rx="24" fill="%23e85d2f"/><text x="50%" y="56%" text-anchor="middle" font-family="Arial" font-size="64" fill="white">P</text></svg>'
 
@@ -140,20 +124,6 @@ const profile = ref({
   phone: auth.user?.phone || '',
   email: auth.user?.email || '',
   avatarUrl: auth.user?.avatarUrl || '',
-})
-
-const showUserDropdown = ref(false)
-
-function closeDropdown() {
-  showUserDropdown.value = false
-}
-
-onMounted(() => {
-  window.addEventListener('click', closeDropdown)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('click', closeDropdown)
 })
 
 const pin = ref('')
@@ -188,10 +158,10 @@ async function saveProfile() {
   savingProfile.value = true
   try {
     await auth.updateProfile(profile.value)
-    profileMsg.value = 'Đã cập nhật thông tin tài khoản.'
+    profileMsg.value = ui.t.settings.profileOk
     profileOk.value = true
   } catch (e) {
-    profileMsg.value = e.response?.data?.error || 'Cập nhật thất bại'
+    profileMsg.value = e.response?.data?.error || 'Update failed'
     profileOk.value = false
   } finally {
     savingProfile.value = false
@@ -201,12 +171,12 @@ async function saveProfile() {
 async function savePin() {
   pinMsg.value = ''
   if (!/^\d{6}$/.test(pin.value)) {
-    pinMsg.value = 'PIN phải gồm đúng 6 chữ số.'
+    pinMsg.value = ui.t.settings.pinInvalid
     pinOk.value = false
     return
   }
   if (pin.value !== pinConfirm.value) {
-    pinMsg.value = 'PIN nhập lại không khớp.'
+    pinMsg.value = ui.t.settings.pinMismatch
     pinOk.value = false
     return
   }
@@ -222,10 +192,10 @@ async function savePin() {
 
     pin.value = ''
     pinConfirm.value = ''
-    pinMsg.value = 'Đã cập nhật PIN thanh toán.'
+    pinMsg.value = ui.t.settings.pinOk
     pinOk.value = true
   } catch (e) {
-    pinMsg.value = e.response?.data?.error || 'Cập nhật PIN thất bại'
+    pinMsg.value = e.response?.data?.error || 'Update PIN failed'
     pinOk.value = false
   } finally {
     savingPin.value = false
@@ -235,7 +205,7 @@ async function savePin() {
 async function doRecharge() {
   rechargeMsg.value = ''
   if (!rechargeAmount.value || rechargeAmount.value < 10000) {
-    rechargeMsg.value = 'Số tiền nạp tối thiểu là 10.000đ.'
+    rechargeMsg.value = ui.t.settings.minAmount
     rechargeOk.value = false
     return
   }
@@ -258,138 +228,25 @@ async function doRecharge() {
     updatedUser.walletBalance = res.data.walletBalance
     auth.setUser(updatedUser)
   } catch (e) {
-    rechargeMsg.value = e.response?.data?.error || 'Nạp tiền thất bại'
+    rechargeMsg.value = e.response?.data?.error || 'Recharge failed'
     rechargeOk.value = false
   } finally {
     recharging.value = false
   }
 }
 
-function logout() {
-  auth.logout()
-  router.push('/login')
-}
-
 function formatPrice(value) {
-  return Number(value || 0).toLocaleString('vi-VN') + 'đ'
+  if (!value) return ui.locale === 'vi' ? '0đ' : '0 VND'
+  return Number(value || 0).toLocaleString(ui.locale === 'vi' ? 'vi-VN' : 'en-US') + (ui.locale === 'vi' ? 'đ' : ' VND')
 }
 </script>
 
 <style scoped>
 .settings-page {
   min-height: 100vh;
-  background: #f5f2ec;
-  color: #0d0d0d;
+  background: var(--page-bg);
+  color: var(--text);
   font-family: "DM Sans", "Segoe UI", sans-serif;
-}
-
-.navbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  height: 60px;
-  padding: 0 2.5rem;
-  background: #0d0d0d;
-}
-
-.nav-logo {
-  color: #e85d2f;
-  font-size: 1.6rem;
-  font-weight: 900;
-  letter-spacing: 1px;
-  text-decoration: none;
-}
-
-.nav-links {
-  display: flex;
-  gap: 6px;
-}
-
-.nav-links a {
-  color: #aaa;
-  border-radius: 6px;
-  padding: 8px 12px;
-  text-decoration: none;
-  font-size: 0.85rem;
-}
-
-.nav-links a:hover,
-.nav-links a.router-link-exact-active {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.nav-user {
-  position: relative;
-  font-size: 0.82rem;
-  color: #ccc;
-}
-.user-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-.user-trigger:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-.username {
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-.role-badge {
-  font-size: 0.7rem; font-weight: 600;
-  padding: 0.2rem 0.6rem; border-radius: 10px;
-  background: rgba(255,255,255,0.08); color: #e85d2f;
-}
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
-  min-width: 170px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  padding: 0.4rem 0;
-  z-index: 150;
-}
-.dropdown-item {
-  color: #ccc;
-  text-decoration: none;
-  font-size: 0.82rem;
-  padding: 0.6rem 1rem;
-  text-align: left;
-  background: none;
-  border: none;
-  width: 100%;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-.btn-logout-item {
-  border-top: 1px solid #2d2d2d;
-  color: #e85d2f;
-}
-.btn-logout-item:hover {
-  background: rgba(232, 93, 47, 0.08);
-  color: #e85d2f;
 }
 
 .content {
@@ -418,7 +275,7 @@ h1 {
 .page-head p,
 .panel-sub,
 .avatar-row p {
-  color: #7a7468;
+  color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.6;
 }
@@ -428,18 +285,18 @@ h1 {
   gap: 4px;
   min-width: 160px;
   padding: 14px 16px;
-  background: #fff;
-  border: 1px solid #d4cfc6;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 8px;
 }
 
 .wallet-chip span {
-  color: #7a7468;
+  color: var(--muted);
   font-size: 0.75rem;
 }
 
 .wallet-chip strong {
-  color: #e85d2f;
+  color: var(--accent);
   font-size: 1.2rem;
 }
 
@@ -450,8 +307,8 @@ h1 {
 }
 
 .panel {
-  background: #fff;
-  border: 1px solid #d4cfc6;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 1.5rem;
 }
@@ -473,7 +330,7 @@ h1 {
   height: 84px;
   object-fit: cover;
   border-radius: 14px;
-  border: 1px solid #d4cfc6;
+  border: 1px solid var(--line);
 }
 
 .upload-btn {
@@ -482,8 +339,8 @@ h1 {
   min-height: 36px;
   margin-bottom: 6px;
   padding: 0 12px;
-  color: #fff;
-  background: #0d0d0d;
+  color: var(--page-bg);
+  background: var(--text);
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 700;
@@ -507,7 +364,7 @@ h1 {
 }
 
 .field label {
-  color: #7a7468;
+  color: var(--muted);
   font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -515,31 +372,34 @@ h1 {
 
 .field input {
   min-height: 42px;
-  color: #0d0d0d;
-  background: #f5f2ec;
-  border: 1px solid #d4cfc6;
+  color: var(--text);
+  background: var(--input-bg);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0 12px;
   outline: none;
 }
 
 .field input:focus {
-  border-color: #e85d2f;
-  background: #fff;
+  border-color: var(--accent);
+  background: var(--input-focus-bg);
 }
 
 .btn-primary {
   width: 100%;
   min-height: 44px;
   color: #fff;
-  background: #e85d2f;
+  background: var(--accent);
   border: 0;
   border-radius: 8px;
   font-weight: 800;
+  cursor: pointer;
 }
 
 .btn-primary:disabled {
-  background: #d4cfc6;
+  background: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .alert {
@@ -551,14 +411,14 @@ h1 {
 
 .alert.ok {
   color: #1f6b42;
-  background: #edf7f1;
-  border: 1px solid #b8dfc8;
+  background: rgba(45, 122, 79, 0.1);
+  border: 1px solid rgba(45, 122, 79, 0.3);
 }
 
 .alert.fail {
   color: #a73324;
-  background: #fdf0ef;
-  border: 1px solid #f5c6c2;
+  background: rgba(192, 57, 43, 0.1);
+  border: 1px solid rgba(192, 57, 43, 0.3);
 }
 
 .tier-box {
@@ -567,16 +427,16 @@ h1 {
   gap: 12px;
   margin-bottom: 0.8rem;
   padding: 14px;
-  background: #f5f2ec;
+  background: var(--input-bg);
   border-radius: 8px;
 }
 
 .tier-box strong {
-  color: #e85d2f;
+  color: var(--accent);
 }
 
 .tier-box span {
-  color: #7a7468;
+  color: var(--muted);
   font-size: 0.85rem;
 }
 
@@ -588,9 +448,9 @@ h1 {
 }
 
 .btn-amt {
-  background: #f5f2ec;
-  color: #0d0d0d;
-  border: 1px solid #d4cfc6;
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0.5rem;
   font-size: 0.82rem;
@@ -600,13 +460,12 @@ h1 {
 }
 
 .btn-amt:hover {
-  background: #ede9e1;
-  border-color: #e85d2f;
-  color: #e85d2f;
+  background: var(--tag-bg);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 @media (max-width: 820px) {
-  .navbar,
   .content {
     padding-inline: 1rem;
   }

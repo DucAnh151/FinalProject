@@ -1,28 +1,27 @@
 <template>
   <div class="booking-page">
     <!-- NAV -->
-    <nav class="navbar">
-      <RouterLink to="/" class="nav-logo">PAM TRAVEL</RouterLink>
-      <button class="btn-back-nav" @click="$router.back()">← Quay lại</button>
-    </nav>
+    <UserHeader backTo="history" />
 
     <div v-if="!booking" class="full-loading">
       <div class="spinner"></div>
-      <span>Đang tải thông tin...</span>
+      <span>{{ ui.t.booking.loading }}</span>
     </div>
 
     <div v-else class="content">
       <!-- COUNTDOWN -->
-      <div :class="['countdown-bar', { urgent: timeLeft < 120 }]">
-        <span class="cd-label">⏱ Ghế được giữ trong</span>
+      <div :class="['countdown-bar', { urgent: timeLeft < 60 }]">
+        <span class="cd-label">{{ ui.t.booking.countdownLabel }}</span>
         <span class="cd-time">{{ formatCountdown(timeLeft) }}</span>
-        <span class="cd-note">— Hoàn tất trước khi hết giờ</span>
+        <span class="cd-note">{{ ui.t.booking.countdownNote }}</span>
       </div>
+
+      <div class="cancel-warning">{{ ui.t.booking.cancelWarning }}</div>
 
       <div class="layout">
         <!-- LEFT: form -->
         <div class="form-panel">
-          <div class="panel-title">THÔNG TIN HÀNH KHÁCH</div>
+          <div class="panel-title">{{ ui.t.booking.passengerTitle }}</div>
 
           <!-- Mỗi ghế = 1 form row -->
           <div
@@ -32,33 +31,33 @@
           >
             <div class="passenger-header">
               <span class="seat-tag">{{ seat.seatName }}</span>
-              <span class="passenger-num">Hành khách {{ idx + 1 }}</span>
-              <label class="self-passenger-label">
+              <span class="passenger-num">{{ ui.t.booking.passenger }} {{ idx + 1 }}</span>
+              <label class="self-passenger-label" v-if="passengers[idx]">
                 <input
                   type="checkbox"
                   v-model="passengers[idx].isSelf"
                   @change="toggleSelf(idx)"
                 />
-                Tôi là người đi
+                {{ ui.t.booking.isSelf }}
               </label>
             </div>
-            <div class="field-row">
+            <div class="field-row" v-if="passengers[idx]">
               <div class="field">
-                <label>Họ và tên *</label>
+                <label>{{ ui.t.booking.nameLabel }}</label>
                 <input
                   v-model="passengers[idx].name"
                   type="text"
-                  placeholder="Nguyễn Văn A"
+                  :placeholder="ui.t.booking.namePlaceholder"
                   :class="{ 'field-error': errors[`name_${idx}`] }"
                 />
                 <span v-if="errors[`name_${idx}`]" class="err-msg">{{ errors[`name_${idx}`] }}</span>
               </div>
               <div class="field">
-                <label>Số điện thoại *</label>
+                <label>{{ ui.t.booking.phoneLabel }}</label>
                 <input
                   v-model="passengers[idx].phone"
                   type="tel"
-                  placeholder="0901234567"
+                  :placeholder="ui.t.booking.phonePlaceholder"
                   :class="{ 'field-error': errors[`phone_${idx}`] }"
                 />
                 <span v-if="errors[`phone_${idx}`]" class="err-msg">{{ errors[`phone_${idx}`] }}</span>
@@ -67,17 +66,17 @@
           </div>
 
           <!-- Điểm đón / trả -->
-          <div class="panel-title" style="margin-top: 1.75rem">ĐIỂM ĐÓN & TRẢ</div>
+          <div class="panel-title" style="margin-top: 1.75rem">{{ ui.t.booking.stopsTitle }}</div>
 
-          <div v-if="loadingStops" class="stops-loading">Đang tải điểm dừng...</div>
+          <div v-if="loadingStops" class="stops-loading">{{ ui.t.booking.loadingStops }}</div>
           <div v-else class="field-row">
             <div class="field">
-              <label>Điểm đón *</label>
+              <label>{{ ui.t.booking.pickupLabel }}</label>
               <select
                 v-model="pickupStopId"
                 :class="{ 'field-error': errors.pickup }"
               >
-                <option value="">-- Chọn điểm đón --</option>
+                <option value="">{{ ui.t.booking.pickupPlaceholder }}</option>
                 <option
                   v-for="s in pickupStops"
                   :key="s.id"
@@ -89,12 +88,12 @@
               <span v-if="errors.pickup" class="err-msg">{{ errors.pickup }}</span>
             </div>
             <div class="field">
-              <label>Điểm trả *</label>
+              <label>{{ ui.t.booking.dropoffLabel }}</label>
               <select
                 v-model="dropoffStopId"
                 :class="{ 'field-error': errors.dropoff }"
               >
-                <option value="">-- Chọn điểm trả --</option>
+                <option value="">{{ ui.t.booking.dropoffPlaceholder }}</option>
                 <option
                   v-for="s in dropoffStops"
                   :key="s.id"
@@ -112,7 +111,7 @@
 
         <!-- RIGHT: tóm tắt -->
         <div class="summary-panel">
-          <div class="summary-title">TÓM TẮT ĐƠN</div>
+          <div class="summary-title">{{ ui.t.booking.summaryTitle }}</div>
 
           <div class="summary-trip">
             <div class="s-route">{{ booking.trip?.origin }} → {{ booking.trip?.destination }}</div>
@@ -123,7 +122,7 @@
           <div class="summary-divider"></div>
 
           <div class="summary-seats">
-            <div class="s-label">Ghế đã chọn</div>
+            <div class="s-label">{{ ui.t.booking.selectedSeats }}</div>
             <div class="seat-tags">
               <span v-for="s in booking.seats" :key="s.seatId" class="seat-tag-sm">
                 {{ s.seatName }}
@@ -134,11 +133,11 @@
           <div class="summary-divider"></div>
 
           <div class="summary-row">
-            <span>{{ booking.seats?.length }} ghế × {{ formatPrice(booking.trip?.price) }}</span>
+            <span>{{ booking.seats?.length }} {{ ui.t.seatMap.priceLabel }} {{ formatPrice(booking.trip?.price) }}</span>
             <span>{{ formatPrice(totalPrice) }}</span>
           </div>
           <div class="summary-row total">
-            <span>Tổng tiền</span>
+            <span>{{ ui.t.booking.total }}</span>
             <span class="total-price">{{ formatPrice(totalPrice) }}</span>
           </div>
 
@@ -147,12 +146,12 @@
             :disabled="submitting || timeLeft <= 0"
             @click="submit"
           >
-            <span v-if="submitting">Đang xử lý...</span>
-            <span v-else-if="timeLeft <= 0">Đã hết giờ giữ ghế</span>
-            <span v-else>TIẾP TỤC THANH TOÁN →</span>
+            <span v-if="submitting">{{ ui.t.booking.processing }}</span>
+            <span v-else-if="timeLeft <= 0">{{ ui.t.booking.expired }}</span>
+            <span v-else>{{ ui.t.booking.continueBtn }}</span>
           </button>
 
-          <div class="secure-note">🔒 Thông tin được bảo mật</div>
+          <div class="secure-note">{{ ui.t.booking.secure }}</div>
         </div>
       </div>
     </div>
@@ -162,12 +161,17 @@
 <script setup>
 // BookingView: Handles passenger details entry and route stops selection
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useBookingStore } from '../stores/bookingStore'
+import { useUiStore } from '../stores/uiStore'
+import UserHeader from '../components/UserHeader.vue'
 import api from '../services/api'
 
 const router = useRouter()
 const auth   = useAuthStore()
+const ui     = useUiStore()
+const bookStore = useBookingStore()
 
 const booking      = ref(null)
 const passengers   = ref([])
@@ -177,7 +181,7 @@ const stops        = ref([])
 const loadingStops = ref(true)
 const submitting   = ref(false)
 const errors       = ref({})
-const timeLeft     = ref(600) // 10 phút = 600 giây
+const timeLeft     = ref(300) // 5 phút — khớp LOCK_MINUTES backend
 
 let countdown = null
 
@@ -197,14 +201,35 @@ const totalPrice = computed(() => {
 })
 
 onMounted(async () => {
-  // Lấy booking từ session (do SeatMapView lưu sau khi gọi POST /bookings)
-  const saved = sessionStorage.getItem('current_booking')
-  if (!saved) { router.push('/'); return }
+  const storeHasBooking = bookStore.hasActiveBooking
 
-  booking.value = JSON.parse(saved)
+  if (storeHasBooking) {
+    booking.value = {
+      bookingId: bookStore.bookingId,
+      expiresAt: bookStore.expiresAt,
+      trip:      bookStore.selectedTrip,
+      seats:     bookStore.seats,
+    }
+  } else {
+    // Fallback: sessionStorage legacy
+    const saved = sessionStorage.getItem('current_booking')
+    if (!saved) { router.push('/'); return }
+    booking.value = JSON.parse(saved)
+  }
 
-  // Khởi tạo form passengers
-  passengers.value = booking.value.seats.map(() => ({ name: '', phone: '', isSelf: false }))
+  // Khởi tạo form passengers (restoring from store if exist)
+  if (bookStore.passengers && bookStore.passengers.length === booking.value.seats.length) {
+    passengers.value = JSON.parse(JSON.stringify(bookStore.passengers))
+  } else {
+    passengers.value = booking.value.seats.map(() => ({ name: '', phone: '', isSelf: false }))
+  }
+
+  if (bookStore.pickupStopId) {
+    pickupStopId.value = bookStore.pickupStopId
+  }
+  if (bookStore.dropoffStopId) {
+    dropoffStopId.value = bookStore.dropoffStopId
+  }
 
   // Tính thời gian còn lại từ expiresAt
   if (booking.value.expiresAt) {
@@ -253,7 +278,7 @@ async function loadStops() {
     const res = await api.get(`/trips/${tripId}/stops`)
     stops.value = res.data.stops
   } catch (e) {
-    errors.value.general = 'Không tải được điểm dừng'
+    errors.value.general = ui.t.booking.errStops
   } finally {
     loadingStops.value = false
   }
@@ -262,12 +287,12 @@ async function loadStops() {
 function validate() {
   const errs = {}
   passengers.value.forEach((p, i) => {
-    if (!p.name.trim()) errs[`name_${i}`] = 'Vui lòng nhập họ tên'
-    if (!p.phone.trim()) errs[`phone_${i}`] = 'Vui lòng nhập số điện thoại'
-    else if (!/^0\d{9}$/.test(p.phone.trim())) errs[`phone_${i}`] = 'Số điện thoại không hợp lệ'
+    if (!p.name.trim()) errs[`name_${i}`] = ui.t.booking.errName
+    if (!p.phone.trim()) errs[`phone_${i}`] = ui.t.booking.errPhone
+    else if (!/^0\d{9}$/.test(p.phone.trim())) errs[`phone_${i}`] = ui.t.booking.errPhoneInvalid
   })
-  if (!pickupStopId.value)  errs.pickup  = 'Vui lòng chọn điểm đón'
-  if (!dropoffStopId.value) errs.dropoff = 'Vui lòng chọn điểm trả'
+  if (!pickupStopId.value)  errs.pickup  = ui.t.booking.errPickup
+  if (!dropoffStopId.value) errs.dropoff = ui.t.booking.errDropoff
   errors.value = errs
   return Object.keys(errs).length === 0
 }
@@ -288,18 +313,23 @@ async function submit() {
       dropoffStopId: dropoffStopId.value,
     })
 
-    // Lưu để PaymentView dùng
-    const paymentData = {
-      ...booking.value,
+    // Lưu vào bookingStore
+    bookStore.setPassengers({
       passengers:    passengers.value,
       pickupStopId:  pickupStopId.value,
       dropoffStopId: dropoffStopId.value,
-      totalPrice:    totalPrice.value,
-    }
-    sessionStorage.setItem('payment_data', JSON.stringify(paymentData))
+    })
+    bookStore.setTotalPrice(totalPrice.value)
+    // Giữ lại sessionStorage cho backward compat — normalized structure
+    sessionStorage.setItem('payment_data', JSON.stringify({
+      bookingId:  booking.value.bookingId,
+      trip:       booking.value.trip,
+      seats:      booking.value.seats,
+      totalPrice: totalPrice.value,
+    }))
     router.push('/payment')
   } catch (e) {
-    errors.value.general = e.response?.data?.error || 'Có lỗi xảy ra'
+    errors.value.general = e.response?.data?.error || (ui.locale === 'vi' ? 'Có lỗi xảy ra' : 'An error occurred')
   } finally {
     submitting.value = false
   }
@@ -313,47 +343,28 @@ function formatCountdown(s) {
 
 function formatTime(dt) {
   if (!dt) return ''
-  return new Date(dt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  return new Date(dt).toLocaleTimeString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatPrice(p) {
   if (!p) return '0đ'
-  return new Intl.NumberFormat('vi-VN').format(p) + 'đ'
+  return new Intl.NumberFormat(ui.locale === 'vi' ? 'vi-VN' : 'en-US').format(p) + 'đ'
 }
 </script>
 
 <style scoped>
-.booking-page { min-height: 100vh; background: #f5f2ec; font-family: 'DM Sans', sans-serif; }
-
-/* NAV */
-.navbar {
-  background: #0d0d0d;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 2.5rem; height: 60px;
-  position: sticky; top: 0; z-index: 100;
-}
-.nav-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.8rem; color: #e85d2f;
-  letter-spacing: 2px; text-decoration: none;
-}
-.btn-back-nav {
-  background: none; border: 1px solid #333; color: #aaa;
-  padding: 0.4rem 1rem; border-radius: 6px;
-  font-size: 0.82rem; cursor: pointer; transition: all 0.15s;
-}
-.btn-back-nav:hover { border-color: #e85d2f; color: #e85d2f; }
+.booking-page { min-height: 100vh; background: var(--page-bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
 
 /* LOADING */
 .full-loading {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   height: calc(100vh - 60px);
-  gap: 1rem; color: #7a7468; font-size: 0.9rem;
+  gap: 1rem; color: var(--muted); font-size: 0.9rem;
 }
 .spinner {
   width: 28px; height: 28px;
-  border: 2px solid #d4cfc6; border-top-color: #e85d2f;
+  border: 2px solid var(--line); border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -371,10 +382,20 @@ function formatPrice(p) {
 .cd-label { color: #aaa; }
 .cd-time {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.4rem; color: #e85d2f; letter-spacing: 1px;
+  font-size: 1.4rem; color: var(--accent); letter-spacing: 1px;
 }
 .countdown-bar.urgent .cd-time { color: #fff; }
 .cd-note { color: #666; font-size: 0.8rem; }
+
+.cancel-warning {
+  margin: 0 2.5rem 0;
+  background: rgba(253, 224, 71, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: var(--text);
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
 
 /* CONTENT */
 .content { padding: 1.5rem 2.5rem; }
@@ -388,17 +409,17 @@ function formatPrice(p) {
 
 /* FORM PANEL */
 .form-panel {
-  background: #fff; border: 1.5px solid #d4cfc6;
+  background: var(--panel); border: 1.5px solid var(--line);
   border-radius: 12px; padding: 1.75rem;
 }
 .panel-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.1rem; letter-spacing: 1.5px;
-  color: #7a7468; margin-bottom: 1.25rem;
+  color: var(--muted); margin-bottom: 1.25rem;
 }
 
 .passenger-block {
-  border: 1.5px solid #ede9e1; border-radius: 10px;
+  border: 1.5px solid var(--line); border-radius: 10px;
   padding: 1.25rem; margin-bottom: 1rem;
 }
 .passenger-header {
@@ -409,7 +430,7 @@ function formatPrice(p) {
   margin-left: auto;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #7a7468;
+  color: var(--muted);
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -418,14 +439,14 @@ function formatPrice(p) {
 }
 .self-passenger-label input {
   cursor: pointer;
-  accent-color: #e85d2f;
+  accent-color: var(--accent);
 }
 .seat-tag {
-  background: #e85d2f; color: #fff;
+  background: var(--accent); color: #fff;
   padding: 0.2rem 0.7rem; border-radius: 20px;
   font-size: 0.78rem; font-weight: 600;
 }
-.passenger-num { font-size: 0.82rem; color: #7a7468; font-weight: 500; }
+.passenger-num { font-size: 0.82rem; color: var(--muted); font-weight: 500; }
 
 .field-row {
   display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
@@ -433,82 +454,81 @@ function formatPrice(p) {
 .field { display: flex; flex-direction: column; gap: 0.4rem; }
 .field label {
   font-size: 0.72rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.8px; color: #7a7468;
+  text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted);
 }
 .field input, .field select {
-  border: 1.5px solid #d4cfc6; border-radius: 8px;
+  border: 1.5px solid var(--line); border-radius: 8px;
   padding: 0.65rem 0.9rem; font-size: 0.9rem;
-  color: #0d0d0d; background: #f5f2ec;
+  color: var(--text); background: var(--input-bg, var(--tag-bg));
   outline: none; transition: border-color 0.15s;
   font-family: 'DM Sans', sans-serif;
 }
 .field input:focus, .field select:focus {
-  border-color: #e85d2f; background: #fff;
+  border-color: var(--accent); background: var(--input-focus-bg, var(--panel));
 }
 .field input.field-error, .field select.field-error { border-color: #c0392b; }
 .err-msg { font-size: 0.72rem; color: #c0392b; }
 
-.stops-loading { font-size: 0.82rem; color: #7a7468; padding: 0.5rem 0; }
+.stops-loading { font-size: 0.82rem; color: var(--muted); padding: 0.5rem 0; }
 
 .alert-error {
-  background: #fdf0ef; color: #c0392b;
-  border: 1px solid #f5c6c2;
+  background: rgba(192, 57, 43, 0.1); color: #c0392b;
+  border: 1px solid rgba(192, 57, 43, 0.3);
   border-radius: 8px; padding: 0.75rem 1rem;
   font-size: 0.83rem; margin-top: 1rem;
 }
 
 /* SUMMARY PANEL */
 .summary-panel {
-  background: #fff; border: 1.5px solid #d4cfc6;
+  background: var(--panel); border: 1.5px solid var(--line);
   border-radius: 12px; padding: 1.5rem;
   position: sticky; top: 80px;
 }
 .summary-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.1rem; letter-spacing: 1.5px;
-  color: #7a7468; margin-bottom: 1rem;
+  color: var(--muted); margin-bottom: 1rem;
 }
 .summary-trip { margin-bottom: 0.5rem; }
-.s-route { font-size: 1rem; font-weight: 600; color: #0d0d0d; }
+.s-route { font-size: 1rem; font-weight: 600; color: var(--text); }
 .s-time {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.4rem; color: #e85d2f; line-height: 1.2;
+  font-size: 1.4rem; color: var(--accent); line-height: 1.2;
 }
-.s-meta { font-size: 0.78rem; color: #7a7468; margin-top: 0.2rem; }
+.s-meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
 
-.summary-divider { height: 1px; background: #ede9e1; margin: 0.75rem 0; }
+.summary-divider { height: 1px; background: var(--line); margin: 0.75rem 0; }
 
-/* .summary-seats { } */
-.s-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #7a7468; margin-bottom: 0.5rem; }
+.s-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.5rem; }
 .seat-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .seat-tag-sm {
-  background: #ede9e1; color: #0d0d0d;
+  background: var(--tag-bg); color: var(--text);
   padding: 0.2rem 0.6rem; border-radius: 20px;
   font-size: 0.75rem; font-weight: 600;
 }
 
 .summary-row {
   display: flex; justify-content: space-between;
-  font-size: 0.83rem; color: #7a7468; margin-bottom: 0.4rem;
+  font-size: 0.83rem; color: var(--muted); margin-bottom: 0.4rem;
 }
-.summary-row.total { font-weight: 600; color: #0d0d0d; font-size: 0.9rem; margin-top: 0.25rem; }
+.summary-row.total { font-weight: 600; color: var(--text); font-size: 0.9rem; margin-top: 0.25rem; }
 .total-price {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.2rem; color: #e85d2f;
+  font-size: 1.2rem; color: var(--accent);
 }
 
 .btn-pay {
-  width: 100%; background: #e85d2f; color: #fff;
+  width: 100%; background: var(--accent); color: #fff;
   border: none; border-radius: 8px;
   padding: 0.85rem; font-size: 0.95rem; font-weight: 600;
   cursor: pointer; transition: background 0.15s;
   margin-top: 1rem;
 }
-.btn-pay:hover:not(:disabled) { background: #c44a1e; }
-.btn-pay:disabled { background: #d4cfc6; cursor: not-allowed; }
+.btn-pay:hover:not(:disabled) { background: var(--accent-hover, #c44a1e); }
+.btn-pay:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
 
 .secure-note {
-  text-align: center; font-size: 0.72rem; color: #7a7468;
+  text-align: center; font-size: 0.72rem; color: var(--muted);
   margin-top: 0.75rem;
 }
 </style>

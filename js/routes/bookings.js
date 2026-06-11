@@ -36,6 +36,11 @@ router.post('/', async (req, res) => {
       if (!trip || trip.status !== 'OPEN')
         throw new Error('TRIP_NOT_AVAILABLE');
 
+      // BR-06: không cho đặt chuyến khởi hành trong vòng 60 phút
+      const minDeparture = new Date(Date.now() + 60 * 60 * 1000);
+      if (trip.departure_time <= minDeparture)
+        throw new Error('TRIP_CLOSING_SOON');
+
       // 2. Lấy trạng thái ghế hiện tại — lock rows để tránh race condition
       const seatStatuses = await tx.trip_seat_status.findMany({
         where: {
@@ -118,6 +123,8 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ error: 'Admin không được đặt vé' });
     if (e.message === 'TRIP_NOT_AVAILABLE')
       return res.status(400).json({ error: 'Chuyến xe không khả dụng' });
+    if (e.message === 'TRIP_CLOSING_SOON')
+      return res.status(400).json({ error: 'Chuyến xe đã đóng bán (còn dưới 60 phút trước giờ khởi hành)' });
     if (e.message === 'SEAT_ALREADY_BOOKED')
       return res.status(409).json({ error: 'Ghế đã được đặt' });
     if (e.message === 'SEAT_ALREADY_LOCKED')
@@ -265,13 +272,19 @@ router.post('/:id/cancel', async (req, res) => {
 
       const seatIds = booking.booking_seats.map(bs => bs.seat_id);
 
-      // 90% refund if booking was CONFIRMED and paid
+      // Refund logic: check loyalty tier for fee exemption
+      let refundAmount = 0n;
+      let refundRate = 0;
       const successPayment = booking.payments.find(p => p.status === 'SUCCESS');
       if (booking.status === 'CONFIRMED' && successPayment) {
-        const refundAmount = BigInt(Math.floor(Number(successPayment.amount) * 0.9));
         const user = await tx.users.findUnique({
-          where: { id: BigInt(userId) }
+          where: { id: BigInt(userId) },
+          select: { id: true, wallet_balance: true }
         });
+        // BR-04: phí hủy 10%, hoàn 90%
+        refundRate = 0.9;
+        refundAmount = BigInt(Math.floor(Number(successPayment.amount) * refundRate));
+
         if (user) {
           const newBalance = BigInt(user.wallet_balance || 0) + refundAmount;
           await tx.users.update({
@@ -279,13 +292,15 @@ router.post('/:id/cancel', async (req, res) => {
             data: { wallet_balance: newBalance }
           });
 
+          const feeDesc = `Hoàn tiền 90% hủy vé #${booking.id} (${successPayment.gateway})`;
+
           await tx.wallet_transactions.create({
             data: {
               user_id: BigInt(userId),
               type: 'REFUND',
               amount: refundAmount,
               balance_after: newBalance,
-              description: `Hoàn tiền 90% hủy vé #${booking.id} (${successPayment.gateway})`,
+              description: feeDesc,
               booking_id: booking.id
             }
           });
@@ -307,13 +322,22 @@ router.post('/:id/cancel', async (req, res) => {
         data:  { status: 'AVAILABLE', locked_until: null, locked_by_user_id: null }
       });
 
-      return tx.bookings.update({
+      const updated = await tx.bookings.update({
         where: { id: booking.id },
         data:  { status: 'CANCELLED', expires_at: null }
       });
+
+      return { booking: updated, refundAmount: Number(refundAmount), refundRate };
     });
 
-    res.json({ success: true, bookingId: Number(result.id), status: 'CANCELLED', reason });
+    res.json({
+      success: true,
+      bookingId: Number(result.booking.id),
+      status: 'CANCELLED',
+      reason,
+      refundAmount: result.refundAmount,
+      refundRate: result.refundRate,
+    });
   } catch (e) {
     if (e.message === 'BOOKING_NOT_FOUND')
       return res.status(404).json({ error: 'Không tìm thấy đơn đặt vé' });

@@ -5,16 +5,27 @@
       <RouterLink to="/" class="nav-logo">PAM TRAVEL</RouterLink>
       <div class="nav-links">
         <button :class="['tab-btn', { active: mainView === 'trips' }]" @click="mainView = 'trips'">
-          🚌 Chuyến của tôi
+          🚌 {{ ui.t.driver.myTrips }}
         </button>
         <button :class="['tab-btn', { active: mainView === 'scanner' }]" @click="mainView = 'scanner'">
-          📷 Soát vé
+          📷 {{ ui.t.driver.scanner }}
         </button>
       </div>
-      <div class="nav-user">
-        <span class="role-badge">DRIVER</span>
-        <span>{{ auth.user?.fullName }}</span>
-        <button class="btn-logout" @click="logout">Đăng xuất</button>
+      <div class="nav-user-wrap">
+        <!-- Theme toggle -->
+        <button class="icon-btn" type="button" :aria-label="ui.t.header.theme" @click="ui.toggleDark()">
+          {{ ui.isDark ? '☀' : '◐' }}
+        </button>
+        <!-- Language toggle -->
+        <button class="text-btn" type="button" @click="ui.toggleLocale()">
+          {{ ui.locale === 'vi' ? 'EN' : 'VI' }}
+        </button>
+
+        <div class="nav-user">
+          <span class="role-badge">DRIVER</span>
+          <span class="username">{{ auth.user?.fullName }}</span>
+          <button class="btn-logout" @click="logout">{{ ui.t.nav.logout }}</button>
+        </div>
       </div>
     </nav>
 
@@ -24,24 +35,24 @@
     <div v-if="mainView === 'trips'" class="content">
       <div class="page-header-row">
         <div>
-          <div class="page-title">CHUYẾN CỦA TÔI</div>
-          <div class="page-sub">Các chuyến xe được phân công cho {{ auth.user?.fullName }}</div>
+          <div class="page-title">{{ ui.t.driver.myTripsTitle }}</div>
+          <div class="page-sub">{{ ui.locale === 'vi' ? 'Các chuyến xe được phân công cho' : 'Trips assigned to' }} {{ auth.user?.fullName }}</div>
         </div>
         <button class="btn-reload" @click="loadMyTrips" :disabled="loadingTrips">
-          {{ loadingTrips ? '⟳ Đang tải...' : '⟳ Làm mới' }}
+          {{ loadingTrips ? ui.t.driver.refreshing : ui.t.driver.refresh }}
         </button>
       </div>
 
       <!-- Loading / Empty -->
       <div v-if="loadingTrips" class="state-box">
         <div class="spinner"></div>
-        <span>Đang tải danh sách chuyến...</span>
+        <span>{{ ui.t.driver.loading }}</span>
       </div>
 
       <div v-else-if="!myTrips.length" class="state-box empty">
         <div class="empty-icon">🚌</div>
-        <div class="empty-title">Chưa có chuyến nào</div>
-        <div class="empty-sub">Liên hệ admin để được phân công chuyến xe</div>
+        <div class="empty-title">{{ ui.t.driver.noTrips }}</div>
+        <div class="empty-sub">{{ ui.t.driver.noTripsSub }}</div>
       </div>
 
       <!-- Trip cards -->
@@ -71,7 +82,7 @@
             </div>
             <div class="trip-meta-row">
               <span :class="['status-badge', `s-${trip.status.toLowerCase()}`]">{{ trip.status }}</span>
-              <span class="meta-item">👥 {{ trip.passengerCount }} hành khách</span>
+              <span class="meta-item">👥 {{ trip.passengerCount }} {{ ui.t.driver.passengers }}</span>
             </div>
           </div>
 
@@ -81,13 +92,13 @@
               @click="openManifest(trip)"
               :disabled="trip.passengerCount === 0"
             >
-              Xem hành khách →
+              {{ ui.t.driver.viewPassengers }}
             </button>
             <button
               class="btn-scanner-trip"
               @click="goToScanner(trip)"
             >
-              Soát vé
+              {{ ui.t.driver.scanTickets }}
             </button>
           </div>
         </div>
@@ -100,15 +111,15 @@
     <div v-if="mainView === 'scanner'" class="content">
       <div class="page-header-row">
         <div>
-          <div class="page-title">SOÁT VÉ</div>
+          <div class="page-title">{{ ui.t.driver.scanTitle }}</div>
           <div class="page-sub" v-if="scannerTrip">
-            Chuyến #{{ scannerTrip.id }}: {{ scannerTrip.origin }} → {{ scannerTrip.destination }}
+            {{ ui.locale === 'vi' ? 'Chuyến' : 'Trip' }} #{{ scannerTrip.id }}: {{ scannerTrip.origin }} → {{ scannerTrip.destination }}
             · {{ formatTime(scannerTrip.departureTime) }}
           </div>
-          <div class="page-sub" v-else>Quét mã QR hoặc nhập thủ công để check-in hành khách</div>
+          <div class="page-sub" v-else>{{ ui.t.driver.scanSub }}</div>
         </div>
         <button v-if="scannerTrip" class="btn-clear-trip" @click="scannerTrip = null">
-          ✕ Bỏ chọn chuyến
+          {{ ui.t.driver.clearTrip }}
         </button>
       </div>
 
@@ -118,37 +129,37 @@
 
           <!-- Camera scanner -->
           <div class="camera-section">
-            <div class="section-label">QUÉT MÃ QR</div>
+            <div class="section-label">{{ ui.t.driver.cameraTitle }}</div>
 
             <div v-if="!cameraActive" class="camera-placeholder">
               <div class="cam-icon">📷</div>
-              <div class="cam-note">Nhấn để bật camera</div>
-              <button class="btn-camera" @click="startCamera">Bật Camera</button>
+              <div class="cam-note">{{ ui.t.driver.cameraNote }}</div>
+              <button class="btn-camera" @click="startCamera">{{ ui.t.driver.startCamera }}</button>
             </div>
 
-            <div v-else class="camera-wrap">
+            <div class="camera-wrap" v-else>
               <video ref="videoEl" class="camera-video" autoplay playsinline></video>
               <div class="scan-overlay">
                 <div class="scan-frame"></div>
               </div>
-              <button class="btn-stop-camera" @click="stopCamera">Tắt Camera</button>
+              <button class="btn-stop-camera" @click="stopCamera">{{ ui.t.driver.stopCamera }}</button>
             </div>
           </div>
 
           <div class="divider-row">
             <span class="divider-line"></span>
-            <span class="divider-text">hoặc</span>
+            <span class="divider-text">{{ ui.t.driver.orLabel }}</span>
             <span class="divider-line"></span>
           </div>
 
           <!-- Manual input -->
           <div class="manual-section">
-            <div class="section-label">NHẬP THỦ CÔNG</div>
+            <div class="section-label">{{ ui.t.driver.manualTitle }}</div>
             <div class="input-row">
               <input
                 v-model="manualQr"
                 type="text"
-                placeholder="Nhập mã QR (VD: PAM-1-1-001)"
+                :placeholder="ui.t.driver.manualPlaceholder"
                 class="qr-input"
                 @keyup.enter="checkIn(manualQr)"
               />
@@ -157,7 +168,7 @@
                 :disabled="!manualQr.trim() || checking"
                 @click="checkIn(manualQr)"
               >
-                {{ checking ? '...' : 'KIỂM TRA' }}
+                {{ checking ? ui.t.driver.checking : ui.t.driver.checkBtn }}
               </button>
             </div>
           </div>
@@ -165,45 +176,45 @@
 
         <!-- RIGHT: kết quả -->
         <div class="result-panel">
-          <div class="section-label">KẾT QUẢ</div>
+          <div class="section-label">{{ ui.t.driver.resultTitle }}</div>
 
           <div v-if="!result && !checking" class="result-waiting">
             <div class="wait-icon">🎫</div>
-            <div class="wait-text">Chờ quét vé...</div>
+            <div class="wait-text">{{ ui.t.driver.waiting }}</div>
           </div>
 
           <div v-if="checking" class="result-checking">
             <div class="spinner"></div>
-            <span>Đang kiểm tra...</span>
+            <span>{{ ui.t.driver.checkingMsg }}</span>
           </div>
 
           <div v-if="result && result.valid" class="result-valid">
             <div class="result-icon valid-icon">✓</div>
-            <div class="result-title">VÉ HỢP LỆ</div>
-            <div class="result-sub">Check-in thành công</div>
+            <div class="result-title">{{ ui.t.driver.validTitle }}</div>
+            <div class="result-sub">{{ ui.t.driver.validSub }}</div>
             <div class="ticket-info">
-              <div class="info-row"><span class="info-key">Hành khách</span><span class="info-val">{{ result.passengerName }}</span></div>
-              <div class="info-row"><span class="info-key">Số điện thoại</span><span class="info-val">{{ result.passengerPhone }}</span></div>
-              <div class="info-row"><span class="info-key">Ghế</span><span class="info-val">{{ result.seatName }}</span></div>
-              <div class="info-row"><span class="info-key">Tuyến</span><span class="info-val">{{ result.origin }} → {{ result.destination }}</span></div>
-              <div class="info-row"><span class="info-key">Khởi hành</span><span class="info-val">{{ formatDatetime(result.departureTime) }}</span></div>
-              <div class="info-row"><span class="info-key">Mã QR</span><span class="info-val mono">{{ result.qrCode }}</span></div>
+              <div class="info-row"><span class="info-key">{{ ui.t.driver.infoPassenger }}</span><span class="info-val">{{ result.passengerName }}</span></div>
+              <div class="info-row"><span class="info-key">{{ ui.t.driver.infoPhone }}</span><span class="info-val">{{ result.passengerPhone }}</span></div>
+              <div class="info-row"><span class="info-key">{{ ui.t.driver.infoSeat }}</span><span class="info-val">{{ result.seatName }}</span></div>
+              <div class="info-row"><span class="info-key">{{ ui.t.driver.infoRoute }}</span><span class="info-val">{{ result.origin }} → {{ result.destination }}</span></div>
+              <div class="info-row"><span class="info-key">{{ ui.t.driver.infoDep }}</span><span class="info-val">{{ formatDatetime(result.departureTime) }}</span></div>
+              <div class="info-row"><span class="info-key">{{ ui.t.driver.infoQr }}</span><span class="info-val mono">{{ result.qrCode }}</span></div>
             </div>
-            <button class="btn-reset" @click="reset">Quét vé tiếp theo</button>
+            <button class="btn-reset" @click="reset">{{ ui.t.driver.nextScan }}</button>
           </div>
 
           <div v-if="result && !result.valid" class="result-invalid">
             <div class="result-icon invalid-icon">✕</div>
-            <div class="result-title">VÉ KHÔNG HỢP LỆ</div>
+            <div class="result-title">{{ ui.t.driver.invalidTitle }}</div>
             <div class="result-sub">{{ result.reason }}</div>
-            <button class="btn-reset" @click="reset">Thử lại</button>
+            <button class="btn-reset" @click="reset">{{ ui.t.driver.retry }}</button>
           </div>
         </div>
       </div>
 
       <!-- Check-in history -->
       <div v-if="history.length > 0" class="history-section">
-        <div class="section-label">LỊCH SỬ CA NÀY ({{ history.length }} vé)</div>
+        <div class="section-label">{{ ui.t.driver.historyTitle }} ({{ history.length }} {{ ui.t.driver.tickets }})</div>
         <div class="history-list">
           <div
             v-for="(h, idx) in history" :key="idx"
@@ -224,7 +235,7 @@
     <div v-if="manifestModal" class="modal-overlay" @click.self="manifestModal = false">
       <div class="modal">
         <div class="modal-header">
-          <div class="modal-title">MANIFEST HÀNH KHÁCH</div>
+          <div class="modal-title">{{ ui.t.driver.manifestTitle }}</div>
           <div class="modal-sub">
             {{ selectedTrip?.origin }} → {{ selectedTrip?.destination }}
             · {{ formatTime(selectedTrip?.departureTime) }}
@@ -236,29 +247,29 @@
         <div class="modal-body">
           <div v-if="loadingManifest" class="state-box">
             <div class="spinner"></div>
-            <span>Đang tải danh sách hành khách...</span>
+            <span>{{ ui.locale === 'vi' ? 'Đang tải danh sách hành khách...' : 'Loading passenger list...' }}</span>
           </div>
 
           <div v-else-if="!manifest.length" class="state-box empty" style="padding:2rem">
-            <div>Chưa có hành khách nào trong chuyến này</div>
+            <div>{{ ui.locale === 'vi' ? 'Chưa có hành khách nào trong chuyến này' : 'No passengers on this trip yet' }}</div>
           </div>
 
           <template v-else>
             <div class="manifest-summary">
-              <span>Tổng: <strong>{{ manifest.length }} hành khách</strong></span>
-              <span>Check-in: <strong class="ci-count">{{ checkedInCount }} / {{ manifest.length }}</strong></span>
+              <span>{{ ui.t.driver.manifestTotal }} <strong>{{ manifest.length }} {{ ui.t.driver.passengers }}</strong></span>
+              <span>{{ ui.t.driver.manifestCI }} <strong class="ci-count">{{ checkedInCount }} / {{ manifest.length }}</strong></span>
             </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Hành khách</th>
-                    <th>Ghế</th>
-                    <th>Điểm đón</th>
-                    <th>Điểm trả</th>
-                    <th>Mã QR</th>
-                    <th>Trạng thái vé</th>
+                    <th>{{ ui.t.driver.tblNum }}</th>
+                    <th>{{ ui.t.driver.tblPassenger }}</th>
+                    <th>{{ ui.t.driver.tblSeat }}</th>
+                    <th>{{ ui.t.driver.tblPickup }}</th>
+                    <th>{{ ui.t.driver.tblDropoff }}</th>
+                    <th>{{ ui.t.driver.tblQr }}</th>
+                    <th>{{ ui.t.driver.tblStatus }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -270,7 +281,7 @@
                     <td class="mono">{{ idx + 1 }}</td>
                     <td>
                       <div style="font-weight:500">{{ p.passengerName }}</div>
-                      <div class="mono" style="font-size:0.72rem;color:#7a7468">{{ p.passengerPhone }}</div>
+                      <div class="mono" style="font-size:0.72rem;color:var(--muted)">{{ p.passengerPhone }}</div>
                     </td>
                     <td>
                       <span class="seat-tag">{{ p.seatName }}</span>
@@ -297,12 +308,14 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useUiStore } from '../stores/uiStore'
 import api from '../services/api'
 
 const router = useRouter()
 const auth   = useAuthStore()
+const ui     = useUiStore()
 
 // ── Views ──
 const mainView = ref('trips')
@@ -391,7 +404,7 @@ async function checkIn(qrCode) {
     history.value.unshift(result.value)
     manualQr.value = ''
   } catch (e) {
-    const reason = e.response?.data?.error || 'Mã QR không hợp lệ'
+    const reason = e.response?.data?.error || (ui.locale === 'vi' ? 'Mã QR không hợp lệ' : 'Invalid QR code')
     result.value  = { valid: false, reason, qrCode: qrCode.trim(), checkedAt: new Date() }
     history.value.unshift(result.value)
     manualQr.value = ''
@@ -410,7 +423,7 @@ async function startCamera() {
     setTimeout(() => { if (videoEl.value) videoEl.value.srcObject = stream }, 100)
     if ('BarcodeDetector' in window) startBarcodeDetection()
   } catch {
-    alert('Không thể truy cập camera. Vui lòng dùng nhập thủ công.')
+    alert(ui.locale === 'vi' ? 'Không thể truy cập camera. Vui lòng dùng nhập thủ công.' : 'Could not access camera. Please use manual entry.')
   }
 }
 
@@ -450,34 +463,38 @@ function getTripDateClass(dt) {
 
 function getDay(dt) { return new Date(dt).getDate() }
 function getMonthYear(dt) {
-  return new Date(dt).toLocaleDateString('vi-VN', { month: 'short', year: '2-digit' })
+  return new Date(dt).toLocaleDateString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'short', year: '2-digit' })
 }
 
 function formatTime(dt) {
   if (!dt) return ''
-  return new Date(dt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  return new Date(dt).toLocaleTimeString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatDate(dt) {
   if (!dt) return ''
-  return new Date(dt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(dt).toLocaleDateString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function formatDatetime(dt) {
   if (!dt) return ''
-  return new Date(dt).toLocaleString('vi-VN', {
+  return new Date(dt).toLocaleString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit'
   })
 }
 
 function ticketLabel(status) {
-  return { ISSUED: 'Đã phát', USED: 'Đã check-in', CANCELLED: 'Đã hủy' }[status] || '—'
+  return {
+    ISSUED: ui.t.driver.ticketIssued,
+    USED: ui.t.driver.ticketUsed,
+    CANCELLED: ui.t.driver.ticketCancelled
+  }[status] || '—'
 }
 </script>
 
 <style scoped>
-.driver-page { min-height: 100vh; background: #f5f2ec; font-family: 'DM Sans', sans-serif; }
+.driver-page { min-height: 100vh; background: var(--page-bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
 
 /* NAV */
 .navbar {
@@ -496,121 +513,150 @@ function ticketLabel(status) {
 }
 .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
 .tab-btn.active { color: #e85d2f; background: rgba(232,93,47,0.1); }
+.nav-user-wrap { display: flex; align-items: center; gap: 1rem; }
 .nav-user { display: flex; align-items: center; gap: 0.75rem; font-size: 0.82rem; color: #ccc; }
 .role-badge { font-size: 0.7rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 10px; background: rgba(240,165,0,0.2); color: #f0a500; }
 .btn-logout { background: none; border: 1px solid #444; color: #888; padding: 0.25rem 0.7rem; border-radius: 4px; cursor: pointer; font-size: 0.78rem; transition: all 0.15s; }
 .btn-logout:hover { border-color: #e85d2f; color: #e85d2f; }
+
+.icon-btn,
+.text-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn {
+  width: 32px;
+  height: 32px;
+}
+.text-btn {
+  padding: 4px 8px;
+  height: 32px;
+}
+.icon-btn:hover,
+.text-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 /* CONTENT */
 .content { padding: 1.75rem 2.5rem; max-width: 1100px; }
 
 .page-header-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 1.5rem; }
 .page-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 2px; }
-.page-sub { font-size: 0.82rem; color: #7a7468; margin-top: 0.25rem; }
+.page-sub { font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; }
 
 .btn-reload, .btn-clear-trip {
-  background: none; border: 1.5px solid #d4cfc6; color: #7a7468;
+  background: none; border: 1.5px solid var(--line); color: var(--muted);
   padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.82rem;
   cursor: pointer; transition: all 0.15s;
 }
-.btn-reload:hover, .btn-clear-trip:hover { border-color: #e85d2f; color: #e85d2f; }
+.btn-reload:hover, .btn-clear-trip:hover { border-color: var(--accent); color: var(--accent); }
 .btn-reload:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* STATE */
-.state-box { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.75rem; padding: 3rem; color: #7a7468; }
-.state-box.empty { background: #fff; border: 1px solid #d4cfc6; border-radius: 12px; }
+.state-box { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.75rem; padding: 3rem; color: var(--muted); }
+.state-box.empty { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
 .empty-icon { font-size: 2.5rem; }
-.empty-title { font-size: 1rem; font-weight: 600; color: #0d0d0d; }
+.empty-title { font-size: 1rem; font-weight: 600; color: var(--text); }
 .empty-sub { font-size: 0.82rem; }
-.spinner { width: 24px; height: 24px; border: 2px solid #d4cfc6; border-top-color: #e85d2f; border-radius: 50%; animation: spin 0.7s linear infinite; }
+.spinner { width: 24px; height: 24px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* TRIP LIST */
 .trip-list { display: flex; flex-direction: column; gap: 0.75rem; }
 .trip-card {
-  background: #fff; border: 1.5px solid #d4cfc6; border-radius: 12px;
+  background: var(--panel); border: 1.5px solid var(--line); border-radius: 12px;
   display: flex; align-items: center; gap: 1.25rem; padding: 1rem 1.25rem;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.trip-card:hover { border-color: #e85d2f; box-shadow: 0 4px 16px rgba(232,93,47,0.08); }
-.trip-card.trip-active { border-color: #2d7a4f; background: #f7fdf9; }
+.trip-card:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(232,93,47,0.08); }
+.trip-card.trip-active { border-color: #2d7a4f; background: rgba(45, 122, 79, 0.04); }
 
 .trip-card-left { flex-shrink: 0; }
 .trip-date-badge {
   width: 52px; text-align: center;
-  background: #f5f2ec; border-radius: 8px; padding: 0.4rem;
+  background: var(--tag-bg); border-radius: 8px; padding: 0.4rem;
   display: flex; flex-direction: column; gap: 0;
 }
-.trip-date-badge.today { background: #e85d2f; color: #fff; }
-.trip-date-badge.past  { background: #e2e3e5; color: #7a7468; }
-.trip-date-badge.future { background: #f5f2ec; color: #0d0d0d; }
+.trip-date-badge.today { background: var(--accent); color: #fff; }
+.trip-date-badge.past  { background: var(--tag-bg); color: var(--muted); }
+.trip-date-badge.future { background: var(--tag-bg); color: var(--text); }
 .td-day { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; line-height: 1; }
 .td-mon { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; }
 
 .trip-card-body { flex: 1; }
 .trip-route { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
 .city { font-size: 1rem; font-weight: 600; }
-.arr { color: #e85d2f; font-weight: 600; }
+.arr { color: var(--accent); font-weight: 600; }
 .trip-meta-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.meta-item { font-size: 0.8rem; color: #7a7468; }
+.meta-item { font-size: 0.8rem; color: var(--muted); }
 .status-badge { font-size: 0.7rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 20px; }
-.s-open      { background: #d4edda; color: #155724; }
-.s-completed { background: #e2e3e5; color: #383d41; }
-.s-cancelled { background: #f8d7da; color: #721c24; }
-.s-closed    { background: #cce5ff; color: #004085; }
+.s-open      { background: rgba(45, 122, 79, 0.15); color: #2d7a4f; }
+.s-completed { background: var(--tag-bg); color: var(--muted); }
+.s-cancelled { background: rgba(192, 57, 43, 0.15); color: #c0392b; }
+.s-closed    { background: rgba(13, 110, 253, 0.15); color: #0d6efd; }
 
 .trip-card-right { display: flex; flex-direction: column; gap: 0.4rem; flex-shrink: 0; }
 .btn-manifest {
-  background: #e85d2f; color: #fff; border: none;
+  background: var(--accent); color: #fff; border: none;
   padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.82rem;
   font-weight: 600; cursor: pointer; white-space: nowrap;
   transition: background 0.15s;
 }
-.btn-manifest:hover:not(:disabled) { background: #c44a1e; }
-.btn-manifest:disabled { background: #d4cfc6; cursor: not-allowed; }
+.btn-manifest:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-manifest:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
 .btn-scanner-trip {
-  background: #0d0d0d; color: #fff; border: none;
+  background: var(--text); color: var(--page-bg); border: none;
   padding: 0.45rem 1rem; border-radius: 8px; font-size: 0.8rem;
   cursor: pointer; transition: background 0.15s;
 }
-.btn-scanner-trip:hover { background: #e85d2f; }
+.btn-scanner-trip:hover { background: var(--accent); color: #fff; }
 
 /* SCANNER LAYOUT */
 .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
 
-.section-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #7a7468; margin-bottom: 0.75rem; }
+.section-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.75rem; }
 
-.scanner-panel { background: #fff; border: 1.5px solid #d4cfc6; border-radius: 12px; padding: 1.5rem; }
+.scanner-panel { background: var(--panel); border: 1.5px solid var(--line); border-radius: 12px; padding: 1.5rem; }
 
 .camera-placeholder { background: #0d0d0d; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; gap: 0.75rem; }
 .cam-icon { font-size: 2.5rem; }
 .cam-note { font-size: 0.82rem; color: #666; }
-.btn-camera { background: #e85d2f; color: #fff; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem; }
-.btn-camera:hover { background: #c44a1e; }
+.btn-camera { background: var(--accent); color: #fff; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem; }
+.btn-camera:hover { background: var(--accent-hover); }
 
 .camera-wrap { position: relative; border-radius: 10px; overflow: hidden; }
 .camera-video { width: 100%; border-radius: 10px; display: block; }
 .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-.scan-frame { width: 180px; height: 180px; border: 2px solid #e85d2f; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); }
+.scan-frame { width: 180px; height: 180px; border: 2px solid var(--accent); border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); }
 .btn-stop-camera { position: absolute; bottom: 0.75rem; right: 0.75rem; background: rgba(0,0,0,0.6); color: #fff; border: none; padding: 0.4rem 0.85rem; border-radius: 6px; font-size: 0.78rem; cursor: pointer; }
 
 .divider-row { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0; }
-.divider-line { flex: 1; height: 1px; background: #d4cfc6; }
-.divider-text { font-size: 0.75rem; color: #7a7468; }
+.divider-line { flex: 1; height: 1px; background: var(--line); }
+.divider-text { font-size: 0.75rem; color: var(--muted); }
 
 .input-row { display: flex; gap: 0.5rem; }
-.qr-input { flex: 1; border: 1.5px solid #d4cfc6; border-radius: 8px; padding: 0.65rem 0.9rem; font-size: 0.88rem; color: #0d0d0d; background: #f5f2ec; outline: none; font-family: 'DM Mono', monospace; transition: border-color 0.15s; }
-.qr-input:focus { border-color: #e85d2f; background: #fff; }
-.btn-checkin { background: #0d0d0d; color: #fff; border: none; border-radius: 8px; padding: 0.65rem 1.1rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
-.btn-checkin:hover:not(:disabled) { background: #e85d2f; }
-.btn-checkin:disabled { background: #d4cfc6; cursor: not-allowed; }
+.qr-input { flex: 1; border: 1.5px solid var(--line); border-radius: 8px; padding: 0.65rem 0.9rem; font-size: 0.88rem; color: var(--text); background: var(--input-bg); outline: none; font-family: var(--font-mono, monospace); transition: border-color 0.15s; }
+.qr-input:focus { border-color: var(--accent); background: var(--input-focus-bg); }
+.btn-checkin { background: var(--text); color: var(--page-bg); border: none; border-radius: 8px; padding: 0.65rem 1.1rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+.btn-checkin:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.btn-checkin:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
 
 /* RESULT PANEL */
-.result-panel { background: #fff; border: 1.5px solid #d4cfc6; border-radius: 12px; padding: 1.5rem; min-height: 320px; }
+.result-panel { background: var(--panel); border: 1.5px solid var(--line); border-radius: 12px; padding: 1.5rem; min-height: 320px; }
 .result-waiting { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 240px; gap: 0.75rem; }
 .wait-icon { font-size: 2.5rem; }
-.wait-text { font-size: 0.85rem; color: #7a7468; }
-.result-checking { display: flex; align-items: center; justify-content: center; height: 240px; gap: 0.75rem; color: #7a7468; }
+.wait-text { font-size: 0.85rem; color: var(--muted); }
+.result-checking { display: flex; align-items: center; justify-content: center; height: 240px; gap: 0.75rem; color: var(--muted); }
 
 .result-valid, .result-invalid { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .result-icon { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 0.75rem; }
@@ -619,34 +665,34 @@ function ticketLabel(status) {
 .result-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 1px; }
 .result-valid .result-title  { color: #2d7a4f; }
 .result-invalid .result-title { color: #c0392b; }
-.result-sub { font-size: 0.82rem; color: #7a7468; margin: 0.25rem 0 1rem; }
+.result-sub { font-size: 0.82rem; color: var(--muted); margin: 0.25rem 0 1rem; }
 
-.ticket-info { width: 100%; text-align: left; border: 1px solid #d4cfc6; border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
-.info-row { display: flex; justify-content: space-between; padding: 0.55rem 0.9rem; font-size: 0.82rem; border-bottom: 1px solid #f0ede8; }
+.ticket-info { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
+.info-row { display: flex; justify-content: space-between; padding: 0.55rem 0.9rem; font-size: 0.82rem; border-bottom: 1px solid var(--line); }
 .info-row:last-child { border-bottom: none; }
-.info-key { color: #7a7468; }
+.info-key { color: var(--muted); }
 .info-val { font-weight: 500; text-align: right; }
-.mono { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: #7a7468; }
+.mono { font-family: var(--font-mono, monospace); font-size: 0.75rem; color: var(--muted); }
 
-.btn-reset { background: #0d0d0d; color: #fff; border: none; border-radius: 8px; padding: 0.7rem 1.5rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
-.btn-reset:hover { background: #e85d2f; }
+.btn-reset { background: var(--text); color: var(--page-bg); border: none; border-radius: 8px; padding: 0.7rem 1.5rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+.btn-reset:hover { background: var(--accent); color: #fff; }
 
 /* HISTORY */
-.history-section { background: #fff; border: 1.5px solid #d4cfc6; border-radius: 12px; padding: 1.25rem 1.5rem; }
+.history-section { background: var(--panel); border: 1.5px solid var(--line); border-radius: 12px; padding: 1.25rem 1.5rem; }
 .history-list { display: flex; flex-direction: column; gap: 0.4rem; }
 .history-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0.75rem; border-radius: 8px; font-size: 0.82rem; }
-.h-valid   { background: #f0fdf4; }
-.h-invalid { background: #fdf0ef; }
+.h-valid   { background: rgba(45, 122, 79, 0.1); }
+.h-invalid { background: rgba(192, 57, 43, 0.1); }
 .h-icon { font-size: 0.85rem; font-weight: 700; width: 16px; text-align: center; }
 .h-valid .h-icon   { color: #2d7a4f; }
 .h-invalid .h-icon { color: #c0392b; }
-.h-qr { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: #7a7468; min-width: 120px; }
-.h-name { flex: 1; color: #0d0d0d; }
-.h-time { font-size: 0.72rem; color: #7a7468; white-space: nowrap; }
+.h-qr { font-family: var(--font-mono, monospace); font-size: 0.75rem; color: var(--muted); min-width: 120px; }
+.h-name { flex: 1; color: var(--text); }
+.h-time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
 
 /* MODAL */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 1rem; }
-.modal { background: #fff; border-radius: 16px; width: 100%; max-width: 800px; max-height: 88vh; overflow-y: auto; }
+.modal { background: var(--panel); border-radius: 16px; width: 100%; max-width: 800px; max-height: 88vh; overflow-y: auto; border: 1px solid var(--line); }
 .modal-header { background: #0d0d0d; padding: 1.5rem; border-radius: 16px 16px 0 0; position: relative; }
 .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: #fff; letter-spacing: 1px; }
 .modal-sub { font-size: 0.82rem; color: #888; margin-top: 0.3rem; }
@@ -655,36 +701,26 @@ function ticketLabel(status) {
 
 .modal-body { padding: 1.5rem; }
 
-.manifest-summary { display: flex; gap: 1.5rem; margin-bottom: 1rem; font-size: 0.85rem; color: #7a7468; }
-.manifest-summary strong { color: #0d0d0d; }
+.manifest-summary { display: flex; gap: 1.5rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--muted); }
+.manifest-summary strong { color: var(--text); }
 .ci-count { color: #2d7a4f; }
 
-.table-wrap { background: #fff; border: 1px solid #d4cfc6; border-radius: 10px; overflow: hidden; }
+.table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 table { width: 100%; border-collapse: collapse; }
 thead { background: #0d0d0d; }
 thead th { padding: 0.75rem 1rem; text-align: left; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #888; }
-tbody tr { border-bottom: 1px solid #f0ede8; transition: background 0.1s; }
+tbody tr { border-bottom: 1px solid var(--line); transition: background 0.1s; }
 tbody tr:last-child { border-bottom: none; }
-tbody tr:hover { background: #faf9f7; }
-tbody tr.row-checkedin { background: #f0fdf4; }
+tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+tbody tr.row-checkedin { background: rgba(45, 122, 79, 0.1); }
 tbody td { padding: 0.8rem 1rem; font-size: 0.875rem; vertical-align: middle; }
 
-.seat-tag { background: #e85d2f; color: #fff; padding: 0.15rem 0.5rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; }
-.floor-hint { font-size: 0.68rem; color: #7a7468; margin-left: 0.25rem; }
+.seat-tag { background: var(--accent); color: #fff; padding: 0.15rem 0.5rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; }
+.floor-hint { font-size: 0.68rem; color: var(--muted); margin-left: 0.25rem; }
 
 .ticket-badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 20px; font-size: 0.68rem; font-weight: 600; }
-.tb-issued    { background: #d1ecf1; color: #0c5460; }
-.tb-used      { background: #d4edda; color: #155724; }
-.tb-cancelled { background: #f8d7da; color: #721c24; }
-.tb-none      { background: #e2e3e5; color: #383d41; }
+.tb-issued    { background: rgba(13, 110, 253, 0.15); color: #0d6efd; }
+.tb-used      { background: rgba(45, 122, 79, 0.15); color: #2d7a4f; }
+.tb-cancelled { background: rgba(192, 57, 43, 0.15); color: #c0392b; }
+.tb-none      { background: var(--tag-bg); color: var(--muted); }
 </style>
-
-
-<!-- nắm đủ toàn bộ context. Bây giờ làm Task 9 hoàn chỉnh:
-Kế hoạch:
-
-bookingStore.js — quản lý state đặt vé xuyên suốt các bước, persist vào localStorage
-uiStore.js — dark mode + i18n EN/VI, persist vào localStorage
-App.vue — apply dark mode class lên root
-Cập nhật SeatMapView, BookingView, PaymentView dùng bookingStore thay sessionStorage thô
-LandingView dùng uiStore thay local refs -->

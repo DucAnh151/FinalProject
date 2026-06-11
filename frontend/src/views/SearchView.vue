@@ -1,46 +1,30 @@
 <template>
   <div class="search-page">
     <!-- NAV -->
-    <nav class="navbar">
-      <RouterLink to="/" class="nav-logo">PAM TRAVEL</RouterLink>
-      <div class="nav-links">
-        <RouterLink to="/">Trang chủ</RouterLink>
-        <RouterLink to="/my-tickets">Vé của tôi</RouterLink>
-      </div>
-      <div class="nav-user">
-        <div class="user-trigger" @click.stop="showUserDropdown = !showUserDropdown">
-          <span class="role-badge">{{ auth.user?.role }}</span>
-          <span class="username">{{ auth.user?.fullName || auth.user?.email }} ▼</span>
-        </div>
-        <div v-if="showUserDropdown" class="dropdown-menu">
-          <RouterLink to="/settings" class="dropdown-item">⚙ Cài đặt tài khoản</RouterLink>
-          <button class="dropdown-item btn-logout-item" @click="logout">🚪 Đăng xuất</button>
-        </div>
-      </div>
-    </nav>
+    <UserHeader />
 
     <!-- HEADER -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">KẾT QUẢ TÌM KIẾM</h1>
+        <h1 class="page-title">{{ ui.t.search.title }}</h1>
         <p class="page-sub" v-if="searchForm">
           {{ getProvinceName(searchForm.originId) }} →
           {{ getProvinceName(searchForm.destinationId) }} |
           {{ formatDate(searchForm.departureDate) }}
         </p>
       </div>
-      <button class="btn-back" @click="router.push('/')">← Tìm lại</button>
+      <button class="btn-back" @click="router.push('/')">{{ ui.t.search.searchAgain }}</button>
     </div>
 
     <!-- LOADING -->
-    <div v-if="loading" class="loading">Đang tải chuyến xe...</div>
+    <div v-if="loading" class="loading">{{ ui.t.search.loading }}</div>
 
     <!-- EMPTY RAW -->
     <div v-else-if="!allTrips.length" class="empty">
       <div class="empty-icon">🚌</div>
-      <div class="empty-title">Không có chuyến xe</div>
-      <div class="empty-sub">Thử chọn ngày khác hoặc tuyến đường khác</div>
-      <button class="btn-search-again" @click="router.push('/')">Tìm kiếm lại</button>
+      <div class="empty-title">{{ ui.t.search.noTrips }}</div>
+      <div class="empty-sub">{{ ui.t.search.noTripsSub }}</div>
+      <button class="btn-search-again" @click="router.push('/')">{{ ui.t.search.searchAgainBtn }}</button>
     </div>
 
     <!-- SEARCH LAYOUT -->
@@ -48,13 +32,13 @@
       <!-- SIDEBAR FILTERS -->
       <aside class="filter-sidebar">
         <div class="filter-header">
-          <h2>Bộ lọc tìm kiếm</h2>
-          <button class="btn-clear-link" @click="resetFilters">Xoá lọc</button>
+          <h2>{{ ui.t.search.filterTitle }}</h2>
+          <button class="btn-clear-link" @click="resetFilters">{{ ui.t.search.clearFilter }}</button>
         </div>
 
         <!-- Filter by Operator -->
         <div class="filter-group">
-          <h3>Nhà xe</h3>
+          <h3>{{ ui.t.search.filterOperator }}</h3>
           <div class="checkbox-list">
             <label v-for="op in uniqueOperators" :key="op" class="checkbox-label">
               <input type="checkbox" :value="op" v-model="selectedOperators" />
@@ -65,7 +49,7 @@
 
         <!-- Filter by Vehicle Type -->
         <div class="filter-group">
-          <h3>Loại xe</h3>
+          <h3>{{ ui.t.search.filterVehicle }}</h3>
           <div class="checkbox-list">
             <label v-for="vt in uniqueVehicleTypes" :key="vt" class="checkbox-label">
               <input type="checkbox" :value="vt" v-model="selectedVehicleTypes" />
@@ -76,19 +60,19 @@
 
         <!-- Filter by Time Slot -->
         <div class="filter-group">
-          <h3>Khung giờ đi</h3>
+          <h3>{{ ui.t.search.filterTime }}</h3>
           <div class="checkbox-list">
             <label class="checkbox-label">
               <input type="checkbox" value="morning" v-model="selectedTimeSlots" />
-              <span>Sáng (00:00 - 12:00)</span>
+              <span>{{ ui.t.search.morning }}</span>
             </label>
             <label class="checkbox-label">
               <input type="checkbox" value="afternoon" v-model="selectedTimeSlots" />
-              <span>Chiều (12:00 - 18:00)</span>
+              <span>{{ ui.t.search.afternoon }}</span>
             </label>
             <label class="checkbox-label">
               <input type="checkbox" value="evening" v-model="selectedTimeSlots" />
-              <span>Tối (18:00 - 24:00)</span>
+              <span>{{ ui.t.search.evening }}</span>
             </label>
           </div>
         </div>
@@ -98,14 +82,16 @@
       <div class="results-column">
         <!-- SORT BAR -->
         <div class="sort-bar">
-          <span class="results-count">Tìm thấy <strong>{{ filteredAndSortedTrips.length }}</strong> chuyến xe</span>
+          <span class="results-count">
+            {{ ui.t.search.found }} <strong>{{ filteredAndSortedTrips.length }}</strong> {{ ui.t.search.trips }}
+          </span>
           <div class="sort-controls">
-            <span class="sort-label">Sắp xếp:</span>
+            <span class="sort-label">{{ ui.t.search.sortLabel }}</span>
             <select v-model="sortBy" class="sort-select">
-              <option value="price-asc">Giá tăng dần</option>
-              <option value="price-desc">Giá giảm dần</option>
-              <option value="time-asc">Giờ đi sớm nhất</option>
-              <option value="time-desc">Giờ đi muộn nhất</option>
+              <option value="price-asc">{{ ui.t.search.sortPriceAsc }}</option>
+              <option value="price-desc">{{ ui.t.search.sortPriceDesc }}</option>
+              <option value="time-asc">{{ ui.t.search.sortTimeAsc }}</option>
+              <option value="time-desc">{{ ui.t.search.sortTimeDesc }}</option>
             </select>
           </div>
         </div>
@@ -113,9 +99,9 @@
         <!-- EMPTY FILTERED -->
         <div v-if="filteredAndSortedTrips.length === 0" class="empty empty-filtered">
           <div class="empty-icon">🔍</div>
-          <div class="empty-title">Không có kết quả phù hợp</div>
-          <div class="empty-sub">Hãy thử xoá bớt các bộ lọc đang chọn</div>
-          <button class="btn-reset-filters" @click="resetFilters">Xoá toàn bộ lọc</button>
+          <div class="empty-title">{{ ui.t.search.noFiltered }}</div>
+          <div class="empty-sub">{{ ui.t.search.noFilteredSub }}</div>
+          <button class="btn-reset-filters" @click="resetFilters">{{ ui.t.search.resetFilters }}</button>
         </div>
 
         <!-- TRIP LIST -->
@@ -139,8 +125,8 @@
             </div>
             <div class="trip-right">
               <div class="price">{{ formatPrice(trip.price) }}<span>đ</span></div>
-              <div class="seats">{{ trip.totalSeats }} chỗ</div>
-              <button class="btn-select">Chọn ghế →</button>
+              <div class="seats">{{ trip.totalSeats }} {{ ui.t.search.seats }}</div>
+              <button class="btn-select">{{ ui.t.search.selectBtn }}</button>
             </div>
           </div>
         </div>
@@ -150,18 +136,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useUiStore } from '../stores/uiStore'
+import { useBookingStore } from '../stores/bookingStore'
+import UserHeader from '../components/UserHeader.vue'
 
 const router = useRouter()
 const auth   = useAuthStore()
+const ui     = useUiStore()
 
 const allTrips   = ref([])
 const loading    = ref(true)
 const searchForm = ref(null)
 const provinces  = ref([])
-const showUserDropdown = ref(false)
 
 // Filters state
 const selectedOperators = ref([])
@@ -169,12 +158,7 @@ const selectedVehicleTypes = ref([])
 const selectedTimeSlots = ref([])
 const sortBy = ref('price-asc')
 
-function closeDropdown() {
-  showUserDropdown.value = false
-}
-
 onMounted(() => {
-  window.addEventListener('click', closeDropdown)
   const results = sessionStorage.getItem('search_results')
   const form    = sessionStorage.getItem('search_form')
   const provs   = sessionStorage.getItem('provinces_cache')
@@ -186,10 +170,6 @@ onMounted(() => {
   searchForm.value = form ? JSON.parse(form) : null
   provinces.value  = provs ? JSON.parse(provs) : []
   loading.value    = false
-})
-
-onUnmounted(() => {
-  window.removeEventListener('click', closeDropdown)
 })
 
 // Dynamic filter options based on search results
@@ -255,6 +235,9 @@ const filteredAndSortedTrips = computed(() => {
 })
 
 function selectTrip(trip) {
+  // Lưu vào bookingStore thay sessionStorage thô
+  const bookStore = useBookingStore()
+  bookStore.setSelectedTrip(trip)
   sessionStorage.setItem('selected_trip', JSON.stringify(trip))
   router.push(`/trips/${trip.id}/seats`)
 }
@@ -265,15 +248,15 @@ function getProvinceName(id) {
 }
 
 function formatTime(dt) {
-  return new Date(dt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  return new Date(dt).toLocaleTimeString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatDate(d) {
-  return new Date(d).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(d).toLocaleDateString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function formatPrice(p) {
-  return parseInt(p).toLocaleString('vi-VN')
+  return parseInt(p).toLocaleString(ui.locale === 'vi' ? 'vi-VN' : 'en-US')
 }
 
 function getDuration(dep, arr) {
@@ -282,148 +265,47 @@ function getDuration(dep, arr) {
   const m = mins % 60
   return m > 0 ? `${h}h${m}m` : `${h}h`
 }
-
-function logout() {
-  auth.logout()
-  router.push('/login')
-}
 </script>
 
 <style scoped>
-.search-page { min-height: 100vh; background: #f5f2ec; font-family: 'DM Sans', sans-serif; }
-
-.navbar {
-  background: #0d0d0d;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2.5rem;
-  height: 60px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.nav-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.8rem;
-  color: #e85d2f;
-  letter-spacing: 2px;
-  text-decoration: none;
-}
-.nav-links { display: flex; gap: 0.25rem; }
-.nav-links a {
-  color: #aaa;
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 500;
-  padding: 0.4rem 0.9rem;
-  border-radius: 4px;
-  transition: all 0.15s;
-}
-.nav-links a:hover { color: #fff; background: rgba(255,255,255,0.08); }
-.nav-user {
-  position: relative;
-  font-size: 0.82rem;
-  color: #ccc;
-}
-.user-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-.user-trigger:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-.username {
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-.role-badge {
-  font-size: 0.7rem; font-weight: 600;
-  padding: 0.2rem 0.6rem; border-radius: 10px;
-  background: rgba(255,255,255,0.08); color: #e85d2f;
-}
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
-  min-width: 170px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  padding: 0.4rem 0;
-  z-index: 150;
-}
-.dropdown-item {
-  color: #ccc;
-  text-decoration: none;
-  font-size: 0.82rem;
-  padding: 0.6rem 1rem;
-  text-align: left;
-  background: none;
-  border: none;
-  width: 100%;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-.btn-logout-item {
-  border-top: 1px solid #2d2d2d;
-  color: #e85d2f;
-}
-.btn-logout-item:hover {
-  background: rgba(232, 93, 47, 0.08);
-  color: #e85d2f;
-}
+.search-page { min-height: 100vh; background: var(--page-bg); color: var(--text); font-family: 'DM Sans', sans-serif; transition: background 0.2s, color 0.2s; }
 
 .page-header {
   display: flex; align-items: flex-end; justify-content: space-between;
   padding: 2rem 2.5rem 1.25rem;
-  border-bottom: 1px solid #d4cfc6;
-  background: #fff;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
   max-width: 1200px;
   margin: 0 auto;
 }
 .page-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 2rem; letter-spacing: 2px;
+  color: var(--text);
 }
-.page-sub { font-size: 0.85rem; color: #7a7468; margin-top: 0.3rem; }
+.page-sub { font-size: 0.85rem; color: var(--muted); margin-top: 0.3rem; }
 .btn-back {
-  background: none; border: 1.5px solid #d4cfc6;
+  background: none; border: 1.5px solid var(--line);
   padding: 0.5rem 1rem; border-radius: 8px;
-  font-size: 0.85rem; cursor: pointer; color: #7a7468;
+  font-size: 0.85rem; cursor: pointer; color: var(--muted);
   transition: all 0.15s;
 }
-.btn-back:hover { border-color: #e85d2f; color: #e85d2f; }
+.btn-back:hover { border-color: var(--accent); color: var(--accent); }
 
-.loading { text-align: center; padding: 4rem; color: #7a7468; }
+.loading { text-align: center; padding: 4rem; color: var(--muted); }
 
 .empty {
   text-align: center; padding: 4rem 2rem;
 }
 .empty-icon { font-size: 4rem; margin-bottom: 1rem; }
-.empty-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 1px; }
-.empty-sub { color: #7a7468; margin: 0.5rem 0 1.5rem; }
+.empty-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 1px; color: var(--text); }
+.empty-sub { color: var(--muted); margin: 0.5rem 0 1.5rem; }
 .btn-search-again {
-  background: #e85d2f; color: #fff; border: none;
+  background: var(--accent); color: #fff; border: none;
   padding: 0.7rem 1.5rem; border-radius: 8px;
   font-size: 0.9rem; font-weight: 600; cursor: pointer;
 }
+.btn-search-again:hover { background: var(--accent-hover); }
 
 /* SEARCH LAYOUT */
 .search-layout {
@@ -437,8 +319,8 @@ function logout() {
 
 /* SIDEBAR */
 .filter-sidebar {
-  background: #fff;
-  border: 1px solid #d4cfc6;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 1.5rem;
   height: fit-content;
@@ -456,12 +338,12 @@ function logout() {
   font-size: 1.3rem;
   letter-spacing: 1px;
   margin: 0;
-  color: #0d0d0d;
+  color: var(--text);
 }
 .btn-clear-link {
   background: none;
   border: none;
-  color: #e85d2f;
+  color: var(--accent);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
@@ -473,7 +355,7 @@ function logout() {
 
 .filter-group {
   margin-bottom: 1.5rem;
-  border-bottom: 1px solid #ede9e1;
+  border-bottom: 1px solid var(--line);
   padding-bottom: 1.25rem;
 }
 .filter-group:last-of-type {
@@ -485,7 +367,7 @@ function logout() {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #7a7468;
+  color: var(--muted);
   margin: 0 0 0.8rem;
 }
 .checkbox-list {
@@ -498,13 +380,13 @@ function logout() {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.85rem;
-  color: #444;
+  color: var(--text);
   cursor: pointer;
   user-select: none;
 }
 .checkbox-label input {
   cursor: pointer;
-  accent-color: #e85d2f;
+  accent-color: var(--accent);
 }
 
 /* RESULTS COLUMN */
@@ -514,8 +396,8 @@ function logout() {
   gap: 1.25rem;
 }
 .sort-bar {
-  background: #fff;
-  border: 1px solid #d4cfc6;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 0.85rem 1.25rem;
   display: flex;
@@ -524,10 +406,10 @@ function logout() {
 }
 .results-count {
   font-size: 0.88rem;
-  color: #7a7468;
+  color: var(--muted);
 }
 .results-count strong {
-  color: #0d0d0d;
+  color: var(--text);
 }
 .sort-controls {
   display: flex;
@@ -536,36 +418,36 @@ function logout() {
 }
 .sort-label {
   font-size: 0.82rem;
-  color: #7a7468;
+  color: var(--muted);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 .sort-select {
-  border: 1.5px solid #d4cfc6;
+  border: 1.5px solid var(--line);
   border-radius: 8px;
   padding: 0.4rem 0.75rem;
   font-size: 0.85rem;
-  color: #0d0d0d;
-  background: #f5f2ec;
+  color: var(--text);
+  background: var(--input-bg);
   outline: none;
   cursor: pointer;
   font-family: 'DM Sans', sans-serif;
   transition: all 0.15s;
 }
 .sort-select:focus {
-  border-color: #e85d2f;
-  background: #fff;
+  border-color: var(--accent);
+  background: var(--input-focus-bg);
 }
 
 .empty-filtered {
-  background: #fff;
-  border: 1px solid #d4cfc6;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 4rem 2rem;
 }
 .btn-reset-filters {
-  background: #e85d2f;
+  background: var(--accent);
   color: #fff;
   border: none;
   padding: 0.65rem 1.5rem;
@@ -575,12 +457,13 @@ function logout() {
   cursor: pointer;
   margin-top: 1rem;
 }
+.btn-reset-filters:hover { background: var(--accent-hover); }
 
 .trip-list { display: flex; flex-direction: column; gap: 1rem; }
 
 .trip-card {
-  background: #fff;
-  border: 1px solid #d4cfc6;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 1.5rem;
   display: flex;
@@ -591,7 +474,7 @@ function logout() {
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 .trip-card:hover {
-  border-color: #e85d2f;
+  border-color: var(--accent);
   box-shadow: 0 4px 16px rgba(232,93,47,0.12);
   transform: translateY(-1px);
 }
@@ -600,34 +483,34 @@ function logout() {
   display: flex; align-items: center; gap: 0.75rem;
   margin-bottom: 0.5rem;
 }
-.city { font-size: 1.1rem; font-weight: 600; color: #0d0d0d; }
-.arrow { color: #e85d2f; font-weight: 600; }
+.city { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+.arrow { color: var(--accent); font-weight: 600; }
 .trip-time {
   display: flex; align-items: center; gap: 1rem;
   margin-bottom: 0.5rem;
 }
-.time { font-family: 'DM Mono', monospace; font-size: 1rem; font-weight: 500; }
+.time { font-family: 'DM Mono', monospace; font-size: 1rem; font-weight: 500; color: var(--text); }
 .duration {
-  font-size: 0.78rem; color: #7a7468;
-  background: #f5f2ec; padding: 0.15rem 0.5rem; border-radius: 10px;
+  font-size: 0.78rem; color: var(--muted);
+  background: var(--tag-bg); padding: 0.15rem 0.5rem; border-radius: 10px;
 }
 .trip-meta { display: flex; gap: 1rem; }
-.operator, .vehicle { font-size: 0.82rem; color: #7a7468; }
+.operator, .vehicle { font-size: 0.82rem; color: var(--muted); }
 
 .trip-right { text-align: right; }
 .price {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 2rem; color: #e85d2f; line-height: 1;
+  font-size: 2rem; color: var(--accent); line-height: 1;
 }
 .price span { font-size: 1rem; }
-.seats { font-size: 0.78rem; color: #7a7468; margin: 0.25rem 0 0.75rem; }
+.seats { font-size: 0.78rem; color: var(--muted); margin: 0.25rem 0 0.75rem; }
 .btn-select {
-  background: #e85d2f; color: #fff; border: none;
+  background: var(--accent); color: #fff; border: none;
   padding: 0.5rem 1rem; border-radius: 8px;
   font-size: 0.85rem; font-weight: 600; cursor: pointer;
   transition: background 0.15s; white-space: nowrap;
 }
-.btn-select:hover { background: #c44a1e; }
+.btn-select:hover { background: var(--accent-hover); }
 
 @media (max-width: 820px) {
   .search-layout {

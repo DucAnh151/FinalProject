@@ -17,10 +17,14 @@ router.get('/search', async (req, res) => {
     const end   = new Date(departureDate);
     end.setDate(end.getDate() + 1);
 
+    // BR-06: không hiển thị chuyến khởi hành trong vòng 60 phút tới
+    const minDeparture = new Date(Date.now() + 60 * 60 * 1000);
+    const searchFrom = start > minDeparture ? start : minDeparture;
+
     const trips = await prisma.trips.findMany({
       where: {
         status: 'OPEN',
-        departure_time: { gte: start, lt: end },
+        departure_time: { gte: searchFrom, lt: end },
         routes: {
           origin_province_id:      parseInt(originId),
           destination_province_id: parseInt(destinationId),

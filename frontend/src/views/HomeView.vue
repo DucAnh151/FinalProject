@@ -1,54 +1,36 @@
 <template>
   <div class="home">
     <!-- NAV -->
-    <nav class="navbar">
-      <span class="nav-logo">PAM TRAVEL</span>
-      <div class="nav-links">
-        <RouterLink to="/">Trang chủ</RouterLink>
-        <RouterLink to="/my-tickets">Vé của tôi</RouterLink>
-        <RouterLink v-if="auth.isDriver" to="/driver">Soát vé</RouterLink>
-        <RouterLink v-if="auth.isAdmin" to="/admin">Quản trị</RouterLink>
-      </div>
-      <div class="nav-user">
-        <div class="user-trigger" @click.stop="showUserDropdown = !showUserDropdown">
-          <span class="role-badge">{{ auth.user?.role }}</span>
-          <span class="username">{{ auth.user?.fullName || auth.user?.email }} ▼</span>
-        </div>
-        <div v-if="showUserDropdown" class="dropdown-menu">
-          <RouterLink to="/settings" class="dropdown-item">⚙ Cài đặt tài khoản</RouterLink>
-          <button class="dropdown-item btn-logout-item" @click="logout">🚪 Đăng xuất</button>
-        </div>
-      </div>
-    </nav>
+    <UserHeader />
 
     <!-- HERO -->
     <div class="hero">
-      <h1>TÌM CHUYẾN XE<br><span>PHÙ HỢP VỚI BẠN</span></h1>
-      <p>Đặt vé nhanh chóng — chọn ghế theo ý muốn — thanh toán an toàn</p>
+      <h1>{{ ui.t.home.title }}<br><span>{{ ui.t.home.subtitle }}</span></h1>
+      <p>{{ ui.t.home.heroSub }}</p>
     </div>
 
     <!-- SEARCH CARD -->
     <div class="search-card">
       <div class="field">
-        <label>Điểm đi</label>
+        <label>{{ ui.t.home.originLabel }}</label>
         <select v-model="form.originId">
-          <option value="">-- Chọn tỉnh --</option>
+          <option value="">{{ ui.t.home.chooseOrigin }}</option>
           <option v-for="p in provinces" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
       </div>
       <div class="field">
-        <label>Điểm đến</label>
+        <label>{{ ui.t.home.destLabel }}</label>
         <select v-model="form.destinationId">
-          <option value="">-- Chọn tỉnh --</option>
+          <option value="">{{ ui.t.home.chooseDest }}</option>
           <option v-for="p in provinces" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
       </div>
       <div class="field">
-        <label>Ngày đi</label>
+        <label>{{ ui.t.home.dateLabel }}</label>
         <input v-model="form.departureDate" type="date" :min="today" />
       </div>
       <button class="btn-search" :disabled="loading" @click="doSearch">
-        {{ loading ? 'Đang tìm...' : 'TÌM CHUYẾN →' }}
+        {{ loading ? ui.t.home.searching : ui.t.home.searchBtn }}
       </button>
     </div>
 
@@ -57,19 +39,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useUiStore } from '../stores/uiStore'
+import UserHeader from '../components/UserHeader.vue'
 import api from '../services/api'
 
 const router = useRouter()
 const auth   = useAuthStore()
+const ui     = useUiStore()
 
 const provinces = ref([])
 const loading   = ref(false)
 const error     = ref('')
 const today     = new Date().toISOString().split('T')[0]
-const showUserDropdown = ref(false)
 
 const form = ref({
   originId:      '',
@@ -77,32 +61,23 @@ const form = ref({
   departureDate: today,
 })
 
-function closeDropdown() {
-  showUserDropdown.value = false
-}
-
 onMounted(async () => {
-  window.addEventListener('click', closeDropdown)
   try {
     const res = await api.get('/trips/provinces')
     provinces.value = res.data
     // Cache lại để SearchView dùng
     sessionStorage.setItem('provinces_cache', JSON.stringify(res.data))
   } catch (e) {
-    error.value = 'Không tải được danh sách tỉnh thành'
+    error.value = ui.t.home.errLoad
   }
-})
-
-onUnmounted(() => {
-  window.removeEventListener('click', closeDropdown)
 })
 
 async function doSearch() {
   error.value = ''
-  if (!form.value.originId)      { error.value = 'Vui lòng chọn điểm đi'; return }
-  if (!form.value.destinationId) { error.value = 'Vui lòng chọn điểm đến'; return }
+  if (!form.value.originId)      { error.value = ui.t.home.errOrigin; return }
+  if (!form.value.destinationId) { error.value = ui.t.home.errDest; return }
   if (form.value.originId === form.value.destinationId) {
-    error.value = 'Điểm đi và điểm đến không được giống nhau'; return
+    error.value = ui.t.home.errSame; return
   }
 
   loading.value = true
@@ -121,122 +96,15 @@ async function doSearch() {
 
     router.push('/search')
   } catch (e) {
-    error.value = e.response?.data?.error || 'Tìm kiếm thất bại'
+    error.value = e.response?.data?.error || (ui.locale === 'vi' ? 'Tìm kiếm thất bại' : 'Search failed')
   } finally {
     loading.value = false
   }
 }
-
-function logout() {
-  auth.logout()
-  router.push('/login')
-}
 </script>
 
 <style scoped>
-.home { min-height: 100vh; background: #f5f2ec; font-family: 'DM Sans', sans-serif; }
-
-/* NAV */
-.navbar {
-  background: #0d0d0d;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2.5rem;
-  height: 60px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.nav-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.8rem;
-  color: #e85d2f;
-  letter-spacing: 2px;
-}
-.nav-links { display: flex; gap: 0.25rem; }
-.nav-links a {
-  color: #aaa;
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 500;
-  padding: 0.4rem 0.9rem;
-  border-radius: 4px;
-  transition: all 0.15s;
-}
-.nav-links a:hover, .nav-links a.router-link-active { color: #fff; background: rgba(255,255,255,0.08); }
-.nav-links a.router-link-exact-active { color: #e85d2f; }
-.nav-user {
-  position: relative;
-  font-size: 0.82rem;
-  color: #ccc;
-}
-.user-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-.user-trigger:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-.username {
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-.role-badge {
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 0.2rem 0.6rem;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.08);
-  color: #e85d2f;
-}
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
-  min-width: 170px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  padding: 0.4rem 0;
-  z-index: 150;
-}
-.dropdown-item {
-  color: #ccc;
-  text-decoration: none;
-  font-size: 0.82rem;
-  padding: 0.6rem 1rem;
-  text-align: left;
-  background: none;
-  border: none;
-  width: 100%;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-.btn-logout-item {
-  border-top: 1px solid #2d2d2d;
-  color: #e85d2f;
-}
-.btn-logout-item:hover {
-  background: rgba(232, 93, 47, 0.08);
-  color: #e85d2f;
-}
+.home { min-height: 100vh; background: var(--page-bg); color: var(--text); font-family: 'DM Sans', sans-serif; transition: background 0.2s, color 0.2s; }
 
 /* HERO */
 .hero {
@@ -251,13 +119,13 @@ function logout() {
   letter-spacing: 1px;
   max-width: 600px;
 }
-.hero h1 span { color: #e85d2f; }
+.hero h1 span { color: var(--accent); }
 .hero p { color: #888; font-size: 0.95rem; margin-top: 0.75rem; line-height: 1.6; }
 
 /* SEARCH CARD */
 .search-card {
-  background: #fff;
-  border: 1px solid #d4cfc6;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 1.75rem;
   margin: 2rem 2.5rem;
@@ -273,25 +141,25 @@ function logout() {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #7a7468;
+  color: var(--muted);
 }
 .field select, .field input {
-  border: 1.5px solid #d4cfc6;
+  border: 1.5px solid var(--line);
   border-radius: 8px;
   padding: 0.65rem 0.9rem;
   font-size: 0.9rem;
-  color: #0d0d0d;
-  background: #f5f2ec;
+  color: var(--text);
+  background: var(--input-bg);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background-color 0.15s;
   cursor: pointer;
 }
 .field select:focus, .field input:focus {
-  border-color: #e85d2f;
-  background: #fff;
+  border-color: var(--accent);
+  background: var(--input-focus-bg);
 }
 .btn-search {
-  background: #e85d2f;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -302,8 +170,8 @@ function logout() {
   white-space: nowrap;
   transition: background 0.15s;
 }
-.btn-search:hover { background: #c44a1e; }
-.btn-search:disabled { background: #d4cfc6; cursor: not-allowed; }
+.btn-search:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-search:disabled { background: var(--line); cursor: not-allowed; }
 
 .error-msg {
   margin: 0 2.5rem;
@@ -313,5 +181,16 @@ function logout() {
   border-radius: 8px;
   font-size: 0.85rem;
   border: 1px solid #f5c6c2;
+}
+
+@media (max-width: 768px) {
+  .search-card {
+    grid-template-columns: 1fr;
+    margin: 1rem;
+    padding: 1rem;
+  }
+  .error-msg {
+    margin: 1rem;
+  }
 }
 </style>

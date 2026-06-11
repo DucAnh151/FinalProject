@@ -136,7 +136,7 @@ Nhập PIN → Nhập OTP →
 | AC-01 | Trang landing hiển thị đúng khi chưa đăng nhập |
 | AC-02 | Tìm kiếm trả về đúng chuyến theo tuyến + ngày |
 | AC-03 | Ghế LOCKED không cho user khác chọn trong 10 phút |
-| AC-04 | Ghế tự nhả sau 10 phút không thanh toán |
+| AC-04 | Ghế tự nhả sau 5 phút không thanh toán |
 | AC-05 | Thanh toán ví: trừ đúng số tiền, ghi transaction |
 | AC-06 | Hủy vé: hoàn đúng 90%, ghế về AVAILABLE |
 | AC-07 | Driver quét QR: xanh (hợp lệ), đỏ (đã dùng/hủy) |

@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt  = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
+const { confirmBookingAndIssueTickets } = require('../lib/bookingConfirm');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -12,16 +13,17 @@ function generateOTP() {
 
 // POST /api/payments/initiate
 // Bước 1: Kiểm tra PIN → sinh OTP → lưu vào notifications
+// gateway CASH: không cần PIN/OTP → booking CASH_PENDING
 router.post('/initiate', async (req, res) => {
   const { bookingId, userId, gateway, pin } = req.body;
 
-  if (!bookingId || !userId || !gateway || !pin)
+  if (!bookingId || !userId || !gateway)
     return res.status(400).json({ error: 'Thiếu thông tin thanh toán' });
 
   try {
-    // 1. Kiểm tra booking tồn tại và đang PENDING
     const booking = await prisma.bookings.findUnique({
-      where: { id: BigInt(bookingId) }
+      where: { id: BigInt(bookingId) },
+      include: { booking_seats: true },
     });
 
     if (!booking)
@@ -32,15 +34,63 @@ router.post('/initiate', async (req, res) => {
       return res.status(400).json({ error: 'Đơn đặt vé không hợp lệ' });
     if (!booking.expires_at || new Date() > booking.expires_at)
       return res.status(400).json({ error: 'Đơn đặt vé đã hết hạn' });
+    if (!booking.booking_seats.length)
+      return res.status(400).json({ error: 'Vui lòng nhập thông tin hành khách trước khi thanh toán' });
 
-    // 2. Kiểm tra PIN
+    // BR-09: Thanh toán tiền mặt — không PIN/OTP, chờ driver xác nhận
+    if (gateway === 'CASH') {
+      const result = await prisma.$transaction(async (tx) => {
+        const payment = await tx.payments.create({
+          data: {
+            booking_id: BigInt(bookingId),
+            gateway:    'CASH',
+            amount:     booking.total_amount,
+            status:     'PENDING',
+          },
+        });
+
+        await tx.bookings.update({
+          where: { id: booking.id },
+          data:  {
+            status:         'CASH_PENDING',
+            expires_at:     null,
+            payment_method: 'CASH',
+          },
+        });
+
+        await tx.trip_seat_status.updateMany({
+          where: {
+            trip_id: booking.trip_id,
+            seat_id: { in: booking.booking_seats.map(bs => bs.seat_id) },
+          },
+          data: {
+            status:            'CONFIRMED',
+            locked_until:      null,
+            locked_by_user_id: null,
+          },
+        });
+
+        return payment;
+      });
+
+      return res.json({
+        success:   true,
+        paymentId: Number(result.id),
+        status:    'CASH_PENDING',
+        message:   'Đã chọn thanh toán tiền mặt. Vui lòng thanh toán cho tài xế khi lên xe.',
+      });
+    }
+
+    if (!pin)
+      return res.status(400).json({ error: 'Thiếu mã PIN thanh toán' });
+
     const user = await prisma.users.findUnique({
-      where: { id: BigInt(userId) }
+      where: { id: BigInt(userId) },
     });
 
     if (!user)
       return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
-      
+
     if (gateway === 'WALLET' && Number(user.wallet_balance || 0) < Number(booking.total_amount)) {
       return res.status(400).json({ error: 'Số dư ví không đủ. Vui lòng nạp thêm tiền.' });
     }
@@ -228,13 +278,34 @@ router.post('/confirm', async (req, res) => {
         data:  { is_read: true }
       });
 
-      return { booking, tickets };
+      // BR-07: cập nhật total_tickets, tự nâng VIP_CUSTOMER khi >= 10 vé hoặc chuyến
+      const ticketCount = booking.booking_seats.length;
+      const currentUser = await tx.users.findUnique({
+        where: { id: BigInt(userId) },
+        select: { total_tickets: true, total_trips: true, loyalty_tier: true }
+      });
+      const newTotalTickets = (currentUser?.total_tickets || 0) + ticketCount;
+      const newTier = (newTotalTickets >= 10 || (currentUser?.total_trips || 0) >= 10)
+        ? 'VIP_CUSTOMER'
+        : (currentUser?.loyalty_tier || 'STANDARD');
+
+      await tx.users.update({
+        where: { id: BigInt(userId) },
+        data: {
+          total_tickets: newTotalTickets,
+          loyalty_tier:  newTier,
+        }
+      });
+
+      return { booking, tickets, loyaltyTier: newTier, totalTickets: newTotalTickets };
     });
 
     res.json({
       success:   true,
       bookingId: Number(result.booking.id),
       status:    'CONFIRMED',
+      loyaltyTier:  result.loyaltyTier,
+      totalTickets: result.totalTickets,
       tickets:   result.tickets.map(t => ({
         id:      Number(t.id),
         qrCode:  t.qr_code,
@@ -319,7 +390,7 @@ router.post('/recharge', async (req, res) => {
       await tx.wallet_transactions.create({
         data: {
           user_id: BigInt(userId),
-          type: 'DEPOSIT',
+          type: 'TOPUP',
           amount: BigInt(amount),
           balance_after: newBalance,
           description: 'Nạp tiền vào ví giả lập'

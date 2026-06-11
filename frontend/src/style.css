@@ -2,14 +2,36 @@
   --font-sans: "Segoe UI", Roboto, Arial, sans-serif;
   --font-display: "Segoe UI", Roboto, Arial, sans-serif;
   --font-mono: "Cascadia Mono", Consolas, monospace;
-  color: #1b1d22;
-  background: #f7f4ee;
+  --page-bg: #f5f2ec;
+  --text: #0d0d0d;
+  --muted: #7a7468;
+  --line: #d4cfc6;
+  --panel: #ffffff;
+  --accent: #e85d2f;
+  --accent-hover: #c44a1e;
+  --tag-bg: #ede9e1;
+  --input-bg: #f5f2ec;
+  --input-focus-bg: #ffffff;
+  color: var(--text);
+  background: var(--page-bg);
   font-family: var(--font-sans);
   font-size: 16px;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.dark, :root.dark {
+  --page-bg: #101415;
+  --text: #f7f4ee;
+  --muted: #b4b8ae;
+  --line: rgba(255, 255, 255, 0.12);
+  --panel: #171d1f;
+  --tag-bg: #242c2f;
+  --input-bg: #101415;
+  --input-focus-bg: #171d1f;
+  color-scheme: dark;
 }
 
 * {
@@ -23,6 +45,9 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  background: var(--page-bg);
+  color: var(--text);
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 button,

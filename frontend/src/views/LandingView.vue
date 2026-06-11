@@ -1,9 +1,13 @@
 <template>
   <div class="landing" :class="{ dark: darkMode }">
+    <!-- Authenticated: UserHeader with nav/theme/user menu -->
+    <UserHeader v-if="auth.isLoggedIn" />
+    <!-- Guest: PublicHeader -->
     <PublicHeader
+      v-else
       :dark="darkMode"
       :locale="locale"
-      @toggle-theme="darkMode = !darkMode"
+      @toggle-theme="ui.toggleDark()"
       @toggle-locale="toggleLocale"
     />
 
@@ -133,18 +137,24 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch, nextTick } from 'vue'
+import { computed, onMounted, ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import PublicFooter from '../components/PublicFooter.vue'
 import PublicHeader from '../components/PublicHeader.vue'
+import UserHeader from '../components/UserHeader.vue'
 import { useAuthStore } from '../stores/authStore'
+import { useUiStore } from '../stores/uiStore'
 import api from '../services/api'
 
 const router = useRouter()
 const auth = useAuthStore()
+const ui = useUiStore()
 
-const locale = ref(sessionStorage.getItem('pam_locale') || 'vi')
-const darkMode = ref(sessionStorage.getItem('pam_theme') === 'dark')
+// Delegate locale/darkMode to uiStore
+const locale = computed(() => ui.locale)
+const darkMode = computed(() => ui.isDark)
+const t = computed(() => ui.t.landing)
+
 const provinces = ref([])
 const popularRoutes = ref([])
 const operators = ref([])
@@ -161,83 +171,14 @@ const form = ref({
   departureDate: today,
 })
 
-const copy = {
-  vi: {
-    eyebrow: 'Đặt vé xe khách liên tỉnh',
-    heroTitle: 'Đi đúng chuyến, ngồi đúng ghế, thanh toán an tâm.',
-    heroSub: 'PAM Travel giúp bạn tìm chuyến, chọn ghế theo sơ đồ thực tế và nhận vé QR trong một luồng đặt vé gọn gàng.',
-    origin: 'Điểm đi',
-    destination: 'Điểm đến',
-    date: 'Ngày đi',
-    chooseOrigin: 'Chọn tỉnh đi',
-    chooseDestination: 'Chọn tỉnh đến',
-    search: 'Tìm chuyến',
-    searching: 'Đang tìm...',
-    routesEyebrow: 'Tuyến được đặt nhiều',
-    routesTitle: 'Tuyến phổ biến',
-    operatorsEyebrow: 'Đối tác vận chuyển',
-    operatorsTitle: 'Nhà xe nổi bật',
-    stepsEyebrow: 'Quy trình',
-    stepsTitle: 'Đặt vé trong 4 bước',
-    offersEyebrow: 'Khuyến mãi',
-    offersTitle: 'Ưu đãi đang chạy',
-    offerSub: 'Áp dụng khi đặt vé qua PAM Travel.',
-    bookNow: 'Đặt ngay',
-    missing: 'Vui lòng chọn đầy đủ điểm đi, điểm đến và ngày đi.',
-    sameProvince: 'Điểm đi và điểm đến không được giống nhau.',
-    searchFailed: 'Không tìm được chuyến phù hợp.',
-    loginFirst: 'Đăng nhập để xem kết quả và chọn ghế.',
-  },
-  en: {
-    eyebrow: 'Intercity bus ticketing',
-    heroTitle: 'Find the right trip, choose your seat, pay with confidence.',
-    heroSub: 'PAM Travel helps passengers search routes, select seats from a live map, and receive QR tickets in one focused booking flow.',
-    origin: 'Origin',
-    destination: 'Destination',
-    date: 'Date',
-    chooseOrigin: 'Choose origin',
-    chooseDestination: 'Choose destination',
-    search: 'Search trips',
-    searching: 'Searching...',
-    routesEyebrow: 'Most booked',
-    routesTitle: 'Popular routes',
-    operatorsEyebrow: 'Transport partners',
-    operatorsTitle: 'Featured operators',
-    stepsEyebrow: 'Flow',
-    stepsTitle: 'Book in 4 steps',
-    offersEyebrow: 'Promotions',
-    offersTitle: 'Current offers',
-    offerSub: 'Available for bookings through PAM Travel.',
-    bookNow: 'Book now',
-    missing: 'Please choose origin, destination, and date.',
-    sameProvince: 'Origin and destination must be different.',
-    searchFailed: 'No matching trips found.',
-    loginFirst: 'Login to view results and choose seats.',
-  },
-}
-
-const t = computed(() => copy[locale.value] || copy.vi)
-
 const trustCards = computed(() => [
-  { icon: '⌁', label: locale.value === 'vi' ? 'chuyến xe' : 'trips', value: Math.max(stats.value.trips, 1000), suffix: '+' },
-  { icon: '◇', label: locale.value === 'vi' ? 'nhà xe' : 'operators', value: Math.max(stats.value.operators, 50), suffix: '+' },
-  { icon: '★', label: locale.value === 'vi' ? 'đánh giá' : 'rating', value: stats.value.rating || 4.8, suffix: '★', decimal: true },
-  { icon: '☎', label: locale.value === 'vi' ? 'hỗ trợ' : 'support', value: 24, suffix: '/7' },
+  { icon: '⌁', label: t.value.trustTrips,     value: Math.max(stats.value.trips, 1000),    suffix: '+' },
+  { icon: '◇', label: t.value.trustOperators, value: Math.max(stats.value.operators, 50),  suffix: '+' },
+  { icon: '★', label: t.value.trustRating,     value: stats.value.rating || 4.8,            suffix: '★', decimal: true },
+  { icon: '☎', label: t.value.trustSupport,    value: 24,                                   suffix: '/7' },
 ])
 
-const steps = computed(() => locale.value === 'vi'
-  ? [
-      { icon: '1', title: 'Tìm chuyến', text: 'Chọn điểm đi, điểm đến và ngày khởi hành.' },
-      { icon: '2', title: 'Chọn ghế', text: 'Xem sơ đồ ghế và giữ chỗ trong thời gian thanh toán.' },
-      { icon: '3', title: 'Thanh toán', text: 'Xác nhận bằng PIN và OTP trong môi trường demo.' },
-      { icon: '4', title: 'Nhận vé QR', text: 'Lưu vé điện tử để tài xế soát khi lên xe.' },
-    ]
-  : [
-      { icon: '1', title: 'Search', text: 'Pick origin, destination, and departure date.' },
-      { icon: '2', title: 'Choose seats', text: 'Use the seat map and hold seats during checkout.' },
-      { icon: '3', title: 'Pay', text: 'Confirm with PIN and OTP in the demo flow.' },
-      { icon: '4', title: 'Get QR ticket', text: 'Show the digital ticket when boarding.' },
-    ])
+const steps = computed(() => t.value.steps || [])
 
 onMounted(async () => {
   await Promise.all([loadProvinces(), loadLandingData()])
@@ -246,9 +187,7 @@ onMounted(async () => {
 })
 
 function toggleLocale() {
-  locale.value = locale.value === 'vi' ? 'en' : 'vi'
-  sessionStorage.setItem('pam_locale', locale.value)
-  // Sau khi Vue re-render xong, observe lại các .reveal element mới
+  ui.toggleLocale()
   nextTick(() => setupReveal())
 }
 
@@ -324,7 +263,6 @@ function searchRoute(route) {
   doSearch()
 }
 
-// Giữ observer ở ngoài để tái sử dụng
 let revealObserver = null
 
 function setupReveal() {
@@ -335,13 +273,10 @@ function setupReveal() {
       })
     }, { threshold: 0.16 })
   }
-
-  // Chỉ observe những element chưa có is-visible (tránh reset khi locale thay đổi)
   document.querySelectorAll('.reveal').forEach((el) => {
     if (!el.classList.contains('is-visible')) {
       revealObserver.observe(el)
     } else {
-      // Element đã visible rồi thì giữ nguyên, chỉ đảm bảo class còn đó
       el.classList.add('is-visible')
     }
   })
@@ -351,19 +286,19 @@ function animateStats() {
   const duration = 900
   const startedAt = performance.now()
   const targets = {
-    trips: Math.max(stats.value.trips || 0, 1000),
+    trips:     Math.max(stats.value.trips || 0, 1000),
     operators: Math.max(stats.value.operators || 0, 50),
     customers: Math.max(stats.value.customers || 0, 12000),
-    rating: stats.value.rating || 4.8,
+    rating:    stats.value.rating || 4.8,
   }
 
   function tick(now) {
     const progress = Math.min((now - startedAt) / duration, 1)
     displayed.value = {
-      trips: Math.round(targets.trips * progress),
+      trips:     Math.round(targets.trips * progress),
       operators: Math.round(targets.operators * progress),
       customers: Math.round(targets.customers * progress),
-      rating: Number((targets.rating * progress).toFixed(1)),
+      rating:    Number((targets.rating * progress).toFixed(1)),
     }
     if (progress < 1) requestAnimationFrame(tick)
   }
@@ -373,7 +308,7 @@ function animateStats() {
 
 function formatMetric(item) {
   if (item.decimal) return `${displayed.value.rating.toFixed(1)}${item.suffix}`
-  const key = item.label.includes('nhà') || item.label.includes('operators') ? 'operators' : item.value === 24 ? null : 'trips'
+  const key = item.label === t.value.trustOperators ? 'operators' : item.value === 24 ? null : 'trips'
   const value = key ? displayed.value[key] : item.value
   return `${Number(value).toLocaleString('vi-VN')}${item.suffix}`
 }

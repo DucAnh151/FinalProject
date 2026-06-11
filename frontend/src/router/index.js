@@ -9,8 +9,7 @@ const routes = [
   },
   {
     path: '/home',
-    component: () => import('../views/HomeView.vue'),
-    meta: { requiresAuth: true, disallowRoles: ['ADMIN', 'DRIVER'] }
+    redirect: '/'  // LandingView là trang chủ thống nhất
   },
   {
     path: '/login',
@@ -77,15 +76,17 @@ const router = createRouter({
 function roleHome(auth) {
   if (auth.isAdmin)  return '/admin'
   if (auth.isDriver) return '/driver'
-  return '/home'
+  return '/'  // Customer: LandingView là trang chủ
 }
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
 
-  // Landing page: nếu đã đăng nhập → redirect về đúng home
+  // Landing page: chỉ redirect ADMIN/DRIVER, customer ở lại LandingView
   if (to.path === '/' && auth.isLoggedIn) {
-    return { path: roleHome(auth) }
+    if (auth.isAdmin)  return { path: '/admin' }
+    if (auth.isDriver) return { path: '/driver' }
+    // Customer stays on LandingView
   }
 
   // Trang yêu cầu auth: chưa login → về login

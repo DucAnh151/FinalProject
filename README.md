@@ -10,7 +10,7 @@ Dự án website đặt vé xe khách trực tuyến với sơ đồ ghế thờ
 ## 🛠️ Công nghệ & Kiến trúc Hệ thống
 
 ### 1. Database (PostgreSQL)
-Đã thiết kế và tạo thành công **17 bảng** trong database `pam_travel` (schema `public`), bao gồm:
+Đã thiết kế và tạo thành công **21 bảng** (Prisma schema) trong database `pam_travel` (schema `public`), bao gồm:
 - **Master data:** `provinces`, `operators`, `vehicle_types`
 - **Xe & Ghế:** `vehicles`, `seats`
 - **Tuyến đường:** `routes`, `route_stops`
@@ -21,19 +21,19 @@ Dự án website đặt vé xe khách trực tuyến với sơ đồ ghế thờ
 - **Đánh giá & Thông báo:** `reviews`, `notifications`
 
 *Đặc điểm thiết kế DB:*
-- Bảng `trip_seat_status` quản lý khóa ghế (để trống hoặc lock trong 10 phút) dùng `locked_until` (TIMESTAMPTZ) và index riêng tối ưu hóa truy vấn khóa.
+- Bảng `trip_seat_status` quản lý khóa ghế (lock **5 phút**) dùng `locked_until` (TIMESTAMPTZ) và index riêng tối ưu hóa truy vấn khóa.
 - Cấu hình sơ đồ ghế động sử dụng trường `seat_layout_json` (JSONB) trong bảng `vehicle_types`.
 
 ### 2. Backend (Node.js + Express)
 Backend Express API hoạt động ổn định tại cổng `http://localhost:3001/api`, kết nối trực tiếp PostgreSQL sử dụng cả Prisma client và `pg` (Pool):
 - **Auth API** (`/api/auth`): Đăng ký, đăng nhập (JWT token, băm bcrypt), cập nhật thông tin cá nhân.
 - **Trips API** (`/api/trips`): Tìm kiếm chuyến xe theo điểm đi, điểm đến, ngày khởi hành; lấy thông tin sơ đồ ghế.
-- **Bookings API** (`/api/bookings`): Tạo booking, cập nhật thông tin hành khách, khóa ghế tạm thời (BR-01, 10 phút).
+- **Bookings API** (`/api/bookings`): Tạo booking, cập nhật thông tin hành khách, khóa ghế tạm thời (5 phút).
 - **Payments API** (`/api/payments`): Xử lý giao dịch thanh toán (Cash/Wallet/Online), nhập mã PIN/OTP giả lập.
 - **Tickets API** (`/api/tickets`): Truy xuất thông tin vé xe, tạo mã QR, yêu cầu hủy vé (hoàn tiền 90% theo quy định BR-04).
 - **Admin API** (`/api/admin`): CRUD quản lý người dùng, chuyến đi, báo cáo doanh thu.
 - **Landing API** (`/api/landing`): Thống kê chung, danh sách nhà xe tiêu biểu, các tuyến đường phổ biến, banners quảng cáo.
-- **Background Job** (`jobs/seatUnlocker`): Định kỳ 10 giây quét database tự động giải phóng các ghế đã quá thời gian khóa (10 phút) mà chưa hoàn tất thanh toán.
+- **Background Jobs**: `seatUnlocker` (60 giây/lần, nhả ghế hết hạn) · `tripCloser` (5 phút/lần, đóng chuyến trước 60 phút khởi hành).
 
 ### 3. Frontend (Vue 3 + Pinia + Axios)
 Dự án frontend Vue 3 được khởi tạo tại thư mục `frontend/`, chạy bằng Vite:
@@ -67,7 +67,7 @@ Chúng ta sẽ hoàn thiện ứng dụng qua 9 tác vụ chính theo thứ tự
   - Đọc trạng thái ghế hiện tại (AVAILABLE, LOCKED, BOOKED) từ API.
   - Cho phép chọn tối đa 5 ghế cùng lúc (BR-02).
   - Polling trạng thái ghế mỗi 5 giây cập nhật thay đổi.
-  - Đếm ngược 10 phút khóa ghế tạm thời (hiển thị timer sinh động).
+  - Đếm ngược 5 phút khóa ghế tạm thời (hiển thị timer sinh động).
 - [ ] **Task 5 — BookingView:**
   - Form điền thông tin chi tiết từng hành khách (Họ tên, SĐT, Email).
   - Lựa chọn điểm đón (pickup) và điểm trả (dropoff) dựa trên danh sách chặng đi.

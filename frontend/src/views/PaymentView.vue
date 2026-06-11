@@ -1,10 +1,7 @@
 <template>
   <div class="payment-page">
     <!-- NAV -->
-    <nav class="navbar">
-      <RouterLink to="/" class="nav-logo">PAM TRAVEL</RouterLink>
-      <button class="btn-back-nav" @click="$router.back()">← Quay lại</button>
-    </nav>
+    <UserHeader backTo="history" />
 
     <div v-if="!paymentData" class="full-loading">
       <div class="spinner"></div>
@@ -15,17 +12,17 @@
       <div class="steps">
         <div :class="['step', { active: step === 1, done: step > 1 }]">
           <span class="step-num">{{ step > 1 ? '✓' : '1' }}</span>
-          <span class="step-label">Xác nhận PIN</span>
+          <span class="step-label">{{ ui.t.payment.step1 }}</span>
         </div>
         <div class="step-line"></div>
         <div :class="['step', { active: step === 2, done: step > 2 }]">
           <span class="step-num">{{ step > 2 ? '✓' : '2' }}</span>
-          <span class="step-label">Nhập OTP</span>
+          <span class="step-label">{{ ui.t.payment.step2 }}</span>
         </div>
         <div class="step-line"></div>
         <div :class="['step', { active: step === 3 }]">
           <span class="step-num">3</span>
-          <span class="step-label">Hoàn tất</span>
+          <span class="step-label">{{ ui.t.payment.step3 }}</span>
         </div>
       </div>
 
@@ -35,7 +32,8 @@
 
           <!-- STEP 1: Chọn phương thức + nhập PIN -->
           <div v-if="step === 1">
-            <div class="panel-title">PHƯƠNG THỨC THANH TOÁN</div>
+            <div class="panel-title">{{ ui.t.payment.methodTitle }}</div>
+            <div class="cancel-warning">{{ ui.t.payment.cancelWarning }}</div>
 
             <div class="gateway-list">
               <div
@@ -50,8 +48,8 @@
               </div>
             </div>
 
-            <div class="panel-title" style="margin-top: 1.75rem">MẬT KHẨU THANH TOÁN</div>
-            <div class="pin-note">Nhập PIN 6 số bạn đã cài đặt</div>
+            <div class="panel-title" style="margin-top: 1.75rem">{{ ui.t.payment.pinTitle }}</div>
+            <div class="pin-note">{{ ui.t.payment.pinNote }}</div>
 
             <div class="pin-wrap">
               <input
@@ -68,17 +66,17 @@
 
             <!-- Set PIN nếu chưa có -->
             <div class="set-pin-box">
-              <div class="set-pin-label">Chưa cài PIN?</div>
+              <div class="set-pin-label">{{ ui.t.payment.setPinLabel }}</div>
               <div class="set-pin-row">
                 <input
                   v-model="newPin"
                   type="password"
                   maxlength="6"
-                  placeholder="Nhập PIN mới (6 số)"
+                  :placeholder="ui.t.payment.setPinNewLabel"
                   class="pin-input-sm"
                 />
                 <button class="btn-set-pin" :disabled="settingPin" @click="setPin">
-                  {{ settingPin ? '...' : 'Cài PIN' }}
+                  {{ settingPin ? ui.t.payment.setPinSetting : ui.t.payment.setPinBtn }}
                 </button>
               </div>
               <span v-if="pinSetMsg" :class="['set-pin-msg', pinSetOk ? 'ok' : 'fail']">
@@ -93,17 +91,17 @@
               :disabled="submitting || !pin || pin.length < 6"
               @click="initPayment"
             >
-              {{ submitting ? 'Đang xử lý...' : 'XÁC NHẬN →' }}
+              {{ submitting ? ui.t.payment.processing : ui.t.payment.confirmBtn }}
             </button>
           </div>
 
           <!-- STEP 2: Nhập OTP -->
           <div v-if="step === 2">
-            <div class="panel-title">XÁC NHẬN OTP</div>
+            <div class="panel-title">{{ ui.t.payment.otpTitle }}</div>
             <div class="otp-note">
-              Mã OTP đã được gửi đến tài khoản của bạn.
+              {{ ui.t.payment.otpNote }}
               <br>
-              <span class="otp-dev">(Dev mode: OTP = <strong>{{ devOtp }}</strong>)</span>
+              <span class="otp-dev">{{ ui.t.payment.otpDevLabel }}<strong>{{ devOtp }}</strong>)</span>
             </div>
 
             <div class="pin-wrap">
@@ -111,7 +109,7 @@
                 v-model="otp"
                 type="text"
                 maxlength="6"
-                placeholder="Nhập mã 6 số"
+                :placeholder="ui.t.payment.otpInput"
                 class="pin-input"
                 :class="{ 'field-error': errors.otp }"
                 @keyup.enter="confirmPayment"
@@ -126,23 +124,23 @@
               :disabled="submitting || !otp || otp.length < 6"
               @click="confirmPayment"
             >
-              {{ submitting ? 'Đang xác nhận...' : 'XÁC NHẬN THANH TOÁN →' }}
+              {{ submitting ? ui.t.payment.confirming : ui.t.payment.confirmPayBtn }}
             </button>
 
             <button class="btn-secondary" @click="step = 1">
-              ← Quay lại
+              {{ ui.t.payment.backBtn }}
             </button>
           </div>
 
           <!-- STEP 3: Thành công -->
           <div v-if="step === 3" class="success-block">
             <div class="success-icon">✓</div>
-            <div class="success-title">THANH TOÁN THÀNH CÔNG</div>
-            <div class="success-sub">Vé điện tử đã được phát hành</div>
+            <div class="success-title">{{ ui.t.payment.successTitle }}</div>
+            <div class="success-sub">{{ ui.t.payment.successSub }}</div>
 
             <div class="ticket-list-cards">
               <div v-for="ticket in tickets" :key="ticket.id" class="ticket-card-success">
-                <div class="ticket-header-success">MÃ VÉ: #{{ ticket.id }}</div>
+                <div class="ticket-header-success">{{ ui.t.payment.ticketLabel }}{{ ticket.id }}</div>
                 <div class="qr-box">
                   <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(ticket.qrCode)}`" alt="QR Vé" class="qr-img" />
                 </div>
@@ -151,14 +149,14 @@
             </div>
 
             <button class="btn-primary" @click="$router.push('/my-tickets')">
-              XEM VÉ CỦA TÔI →
+              {{ ui.t.payment.viewTicketsBtn }}
             </button>
           </div>
         </div>
 
         <!-- RIGHT: tóm tắt đơn hàng -->
         <div class="summary-panel">
-          <div class="summary-title">ĐƠN HÀNG</div>
+          <div class="summary-title">{{ ui.t.payment.orderTitle }}</div>
 
           <div class="s-route">
             {{ paymentData.trip?.origin }} → {{ paymentData.trip?.destination }}
@@ -168,7 +166,7 @@
 
           <div class="summary-divider"></div>
 
-          <div class="s-label">Ghế</div>
+          <div class="s-label">{{ ui.t.payment.seats }}</div>
           <div class="seat-tags">
             <span v-for="s in paymentData.seats" :key="s.seatId" class="seat-tag">
               {{ s.seatName }}
@@ -178,11 +176,11 @@
           <div class="summary-divider"></div>
 
           <div class="summary-row">
-            <span>{{ paymentData.seats?.length }} ghế</span>
+            <span>{{ paymentData.seats?.length }} {{ ui.t.payment.seats.toLowerCase() }}</span>
             <span>{{ formatPrice(paymentData.totalPrice) }}</span>
           </div>
           <div class="summary-row total">
-            <span>Tổng</span>
+            <span>{{ ui.t.seatMap.total }}</span>
             <span class="total-price">{{ formatPrice(paymentData.totalPrice) }}</span>
           </div>
 
@@ -196,15 +194,40 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useBookingStore } from '../stores/bookingStore'
+import { useUiStore } from '../stores/uiStore'
+import UserHeader from '../components/UserHeader.vue'
 import api from '../services/api'
 
 const router = useRouter()
 const auth   = useAuthStore()
+const ui     = useUiStore()
 
-const paymentData     = ref(null)
+// Synchronous init — no spinner flash
+function loadPaymentData() {
+  const bookStore = useBookingStore()
+  if (bookStore.bookingId && bookStore.selectedTrip) {
+    return {
+      bookingId: bookStore.bookingId,
+      trip:      bookStore.selectedTrip,
+      seats:     bookStore.seats,
+      totalPrice: bookStore.totalPrice,
+    }
+  }
+  const saved = sessionStorage.getItem('payment_data')
+  if (saved) return JSON.parse(saved)
+  return null
+}
+
+const paymentData     = ref(loadPaymentData())
+// Redirect if no data (after store + sessionStorage both empty)
+if (!paymentData.value) {
+  router.push('/')
+}
+
 const step            = ref(1)
 const selectedGateway = ref('WALLET')
 const pin             = ref('')
@@ -220,33 +243,27 @@ const pinSetOk        = ref(false)
 const errors          = ref({})
 
 const gateways = computed(() => [
-  { value: 'WALLET', name: `Tài khoản cá nhân (Số dư: ${formatPrice(auth.user?.walletBalance)})`, icon: '👛' },
-  { value: 'VNPAY', name: 'VNPay',  icon: '🏦' },
-  { value: 'MOMO',  name: 'MoMo',   icon: '💜' },
-  { value: 'CARD',  name: 'Thẻ tín dụng', icon: '💳' },
+  { value: 'WALLET', name: `${ui.t.payment.walletGateway}${formatPrice(auth.user?.walletBalance)})`, icon: '👛' },
+  { value: 'VNPAY', name: ui.t.payment.vnpay,  icon: '🏦' },
+  { value: 'MOMO',  name: ui.t.payment.momo,   icon: '💜' },
+  { value: 'CARD',  name: ui.t.payment.card,   icon: '💳' },
 ])
-
-onMounted(() => {
-  const saved = sessionStorage.getItem('payment_data')
-  if (!saved) { router.push('/'); return }
-  paymentData.value = JSON.parse(saved)
-})
 
 async function setPin() {
   pinSetMsg.value = ''
   if (!newPin.value || newPin.value.length !== 6 || !/^\d+$/.test(newPin.value)) {
-    pinSetMsg.value = 'PIN phải đúng 6 chữ số'
+    pinSetMsg.value = ui.value.t.settings.pinInvalid
     pinSetOk.value = false
     return
   }
   settingPin.value = true
   try {
     await api.post('/payments/set-pin', { userId: auth.user.id, pin: newPin.value })
-    pinSetMsg.value = 'Cài PIN thành công!'
+    pinSetMsg.value = ui.value.t.payment.successTitle
     pinSetOk.value = true
     newPin.value = ''
   } catch (e) {
-    pinSetMsg.value = e.response?.data?.error || 'Cài PIN thất bại'
+    pinSetMsg.value = e.response?.data?.error || 'PIN setup failed'
     pinSetOk.value = false
   } finally {
     settingPin.value = false
@@ -256,7 +273,7 @@ async function setPin() {
 async function initPayment() {
   errors.value = {}
   if (!pin.value || pin.value.length !== 6) {
-    errors.value.pin = 'Vui lòng nhập PIN 6 số'
+    errors.value.pin = ui.value.t.payment.errPin
     return
   }
 
@@ -273,7 +290,7 @@ async function initPayment() {
     devOtp.value    = res.data.otp || ''
     step.value      = 2
   } catch (e) {
-    errors.value.general = e.response?.data?.error || 'Xác nhận thất bại'
+    errors.value.general = e.response?.data?.error || ui.value.t.payment.errConfirmFail
   } finally {
     submitting.value = false
   }
@@ -282,7 +299,7 @@ async function initPayment() {
 async function confirmPayment() {
   errors.value = {}
   if (!otp.value || otp.value.length !== 6) {
-    errors.value.otp = 'Vui lòng nhập OTP 6 số'
+    errors.value.otp = ui.value.t.payment.errOtp
     return
   }
 
@@ -297,18 +314,24 @@ async function confirmPayment() {
     tickets.value = res.data.tickets
     step.value    = 3
 
+    const updatedUser = { ...auth.user }
     if (selectedGateway.value === 'WALLET') {
-      const updatedUser = { ...auth.user }
       updatedUser.walletBalance = Math.max(0, updatedUser.walletBalance - paymentData.value.totalPrice)
-      auth.setUser(updatedUser)
     }
+    if (res.data.loyaltyTier) {
+      updatedUser.loyaltyTier = res.data.loyaltyTier
+      updatedUser.totalTickets = res.data.totalTickets
+    }
+    auth.setUser(updatedUser)
 
-    // Xóa session booking
+    // Xóa bookingStore + sessionStorage sau thanh toán
+    const bookStore = useBookingStore()
+    bookStore.clear()
     sessionStorage.removeItem('current_booking')
     sessionStorage.removeItem('payment_data')
     sessionStorage.removeItem('booking_seats')
   } catch (e) {
-    errors.value.general = e.response?.data?.error || 'Xác nhận OTP thất bại'
+    errors.value.general = e.response?.data?.error || ui.value.t.payment.errOtpFail
   } finally {
     submitting.value = false
   }
@@ -316,35 +339,17 @@ async function confirmPayment() {
 
 function formatTime(dt) {
   if (!dt) return ''
-  return new Date(dt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  return new Date(dt).toLocaleTimeString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatPrice(p) {
-  if (!p) return '0đ'
-  return new Intl.NumberFormat('vi-VN').format(p) + 'đ'
+  if (!p) return ui.locale === 'vi' ? '0đ' : '0 VND'
+  return new Intl.NumberFormat(ui.locale === 'vi' ? 'vi-VN' : 'en-US').format(p) + (ui.locale === 'vi' ? 'đ' : ' VND')
 }
 </script>
 
 <style scoped>
-.payment-page { min-height: 100vh; background: #f5f2ec; font-family: 'DM Sans', sans-serif; }
-
-.navbar {
-  background: #0d0d0d;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 2.5rem; height: 60px;
-  position: sticky; top: 0; z-index: 100;
-}
-.nav-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.8rem; color: #e85d2f;
-  letter-spacing: 2px; text-decoration: none;
-}
-.btn-back-nav {
-  background: none; border: 1px solid #333; color: #aaa;
-  padding: 0.4rem 1rem; border-radius: 6px;
-  font-size: 0.82rem; cursor: pointer; transition: all 0.15s;
-}
-.btn-back-nav:hover { border-color: #e85d2f; color: #e85d2f; }
+.payment-page { min-height: 100vh; background: var(--page-bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
 
 .full-loading {
   display: flex; align-items: center; justify-content: center;
@@ -352,7 +357,7 @@ function formatPrice(p) {
 }
 .spinner {
   width: 28px; height: 28px;
-  border: 2px solid #d4cfc6; border-top-color: #e85d2f;
+  border: 2px solid var(--line); border-top-color: var(--accent);
   border-radius: 50%; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -361,21 +366,21 @@ function formatPrice(p) {
 .steps {
   display: flex; align-items: center;
   padding: 1rem 2.5rem;
-  background: #fff; border-bottom: 1px solid #d4cfc6;
+  background: var(--panel); border-bottom: 1px solid var(--line);
 }
 .step { display: flex; align-items: center; gap: 0.5rem; }
 .step-num {
   width: 26px; height: 26px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 0.78rem; font-weight: 600;
-  background: #ede9e1; color: #7a7468;
+  background: var(--tag-bg); color: var(--muted);
   transition: all 0.2s;
 }
-.step.active .step-num { background: #e85d2f; color: #fff; }
+.step.active .step-num { background: var(--accent); color: #fff; }
 .step.done .step-num   { background: #2d7a4f; color: #fff; }
-.step-label { font-size: 0.82rem; color: #7a7468; }
-.step.active .step-label { color: #0d0d0d; font-weight: 600; }
-.step-line { flex: 1; height: 1px; background: #d4cfc6; margin: 0 0.75rem; }
+.step-label { font-size: 0.82rem; color: var(--muted); }
+.step.active .step-label { color: var(--text); font-weight: 600; }
+.step-line { flex: 1; height: 1px; background: var(--line); margin: 0 0.75rem; }
 
 .content { padding: 1.5rem 2.5rem; }
 
@@ -386,99 +391,109 @@ function formatPrice(p) {
 
 /* FORM PANEL */
 .form-panel {
-  background: #fff; border: 1.5px solid #d4cfc6;
+  background: var(--panel); border: 1.5px solid var(--line);
   border-radius: 12px; padding: 1.75rem;
 }
 .panel-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.1rem; letter-spacing: 1.5px;
-  color: #7a7468; margin-bottom: 1rem;
+  color: var(--muted); margin-bottom: 1rem;
+}
+.cancel-warning {
+  background: rgba(253, 224, 71, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: var(--text);
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  margin-bottom: 1rem;
 }
 
 /* Gateway */
 .gateway-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .gateway-card {
   display: flex; align-items: center; gap: 0.75rem;
-  border: 1.5px solid #d4cfc6; border-radius: 8px;
+  border: 1.5px solid var(--line); border-radius: 8px;
   padding: 0.85rem 1rem; cursor: pointer;
   transition: all 0.15s;
 }
-.gateway-card:hover { border-color: #e85d2f; }
-.gateway-card.active { border-color: #e85d2f; background: #fdf0ef; }
+.gateway-card:hover { border-color: var(--accent); }
+.gateway-card.active { border-color: var(--accent); background: rgba(232, 93, 47, 0.08); }
 .gw-icon { font-size: 1.2rem; }
 .gw-name { font-size: 0.9rem; font-weight: 500; flex: 1; }
-.gw-check { color: #e85d2f; font-weight: 700; }
+.gw-check { color: var(--accent); font-weight: 700; }
 
 /* PIN */
-.pin-note { font-size: 0.82rem; color: #7a7468; margin-bottom: 0.75rem; }
+.pin-note { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.75rem; }
 .pin-wrap { margin-bottom: 0.4rem; }
 .pin-input {
-  width: 180px; border: 1.5px solid #d4cfc6; border-radius: 8px;
+  width: 180px; border: 1.5px solid var(--line); border-radius: 8px;
   padding: 0.75rem 1rem; font-size: 1.2rem;
   letter-spacing: 4px; text-align: center;
   outline: none; transition: border-color 0.15s;
-  background: #f5f2ec; color: #0d0d0d;
-  font-family: 'DM Mono', monospace;
+  background: var(--input-bg); color: var(--text);
+  font-family: var(--font-mono, monospace);
 }
-.pin-input:focus { border-color: #e85d2f; background: #fff; }
+.pin-input:focus { border-color: var(--accent); background: var(--input-focus-bg); }
 .pin-input.field-error { border-color: #c0392b; }
 .err-msg { font-size: 0.72rem; color: #c0392b; display: block; margin-bottom: 0.5rem; }
 
 /* Set PIN */
 .set-pin-box {
   margin-top: 1.25rem; padding: 1rem;
-  background: #f5f2ec; border-radius: 8px;
-  border: 1px dashed #d4cfc6;
+  background: var(--input-bg); border-radius: 8px;
+  border: 1px dashed var(--line);
 }
-.set-pin-label { font-size: 0.78rem; font-weight: 600; color: #0d0d0d; margin-bottom: 0.5rem; }.set-pin-row { display: flex; gap: 0.5rem; align-items: center; }
+.set-pin-label { font-size: 0.78rem; font-weight: 600; color: var(--text); margin-bottom: 0.5rem; }
+.set-pin-row { display: flex; gap: 0.5rem; align-items: center; }
 .pin-input-sm {
-  border: 1.5px solid #d4cfc6; border-radius: 6px;
+  border: 1.5px solid var(--line); border-radius: 6px;
   padding: 0.5rem 0.75rem; font-size: 0.9rem;
   letter-spacing: 2px; width: 160px;
-  outline: none; background: #fff; color: #0d0d0d;
-  font-family: 'DM Mono', monospace;
+  outline: none; background: var(--input-focus-bg); color: var(--text);
+  font-family: var(--font-mono, monospace);
 }
-.pin-input-sm:focus { border-color: #e85d2f; }
+.pin-input-sm:focus { border-color: var(--accent); }
 .btn-set-pin {
-  background: #0d0d0d; color: #fff; border: none;
+  background: var(--text); color: var(--page-bg); border: none;
   padding: 0.5rem 1rem; border-radius: 6px;
   font-size: 0.82rem; cursor: pointer; transition: background 0.15s;
 }
-.btn-set-pin:hover { background: #e85d2f; }
-.btn-set-pin:disabled { background: #d4cfc6; cursor: not-allowed; }
+.btn-set-pin:hover { background: var(--accent); color: #fff; }
+.btn-set-pin:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
 .set-pin-msg { font-size: 0.72rem; display: block; margin-top: 0.4rem; }
 .set-pin-msg.ok   { color: #2d7a4f; }
 .set-pin-msg.fail { color: #c0392b; }
 
 /* OTP */
 .otp-note {
-  font-size: 0.85rem; color: #7a7468;
+  font-size: 0.85rem; color: var(--muted);
   line-height: 1.6; margin-bottom: 1rem;
 }
 .otp-dev { font-size: 0.82rem; }
-.otp-dev strong { color: #e85d2f; font-size: 1rem; }
+.otp-dev strong { color: var(--accent); font-size: 1rem; }
 
 /* Buttons */
 .btn-primary {
-  width: 100%; background: #e85d2f; color: #fff;
+  width: 100%; background: var(--accent); color: #fff;
   border: none; border-radius: 8px;
   padding: 0.85rem; font-size: 0.95rem; font-weight: 600;
   cursor: pointer; transition: background 0.15s; margin-top: 1.25rem;
 }
-.btn-primary:hover:not(:disabled) { background: #c44a1e; }
-.btn-primary:disabled { background: #d4cfc6; cursor: not-allowed; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-primary:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
 
 .btn-secondary {
-  width: 100%; background: none; color: #7a7468;
-  border: 1.5px solid #d4cfc6; border-radius: 8px;
+  width: 100%; background: none; color: var(--muted);
+  border: 1.5px solid var(--line); border-radius: 8px;
   padding: 0.75rem; font-size: 0.88rem;
   cursor: pointer; transition: all 0.15s; margin-top: 0.5rem;
 }
-.btn-secondary:hover { border-color: #0d0d0d; color: #0d0d0d; }
+.btn-secondary:hover { border-color: var(--text); color: var(--text); }
 
 .alert-error {
-  background: #fdf0ef; color: #c0392b;
-  border: 1px solid #f5c6c2;
+  background: rgba(192, 57, 43, 0.1); color: #c0392b;
+  border: 1px solid rgba(192, 57, 43, 0.3);
   border-radius: 8px; padding: 0.75rem 1rem;
   font-size: 0.83rem; margin-top: 0.75rem;
 }
@@ -493,9 +508,9 @@ function formatPrice(p) {
 }
 .success-title {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.8rem; letter-spacing: 1px; color: #0d0d0d;
+  font-size: 1.8rem; letter-spacing: 1px; color: var(--text);
 }
-.success-sub { font-size: 0.85rem; color: #7a7468; margin: 0.35rem 0 1.5rem; }
+.success-sub { font-size: 0.85rem; color: var(--muted); margin: 0.35rem 0 1.5rem; }
 .ticket-list-cards {
   margin-bottom: 1.5rem;
   display: grid;
@@ -504,8 +519,8 @@ function formatPrice(p) {
   justify-content: center;
 }
 .ticket-card-success {
-  background: #fdfbf7;
-  border: 1.5px solid #d4cfc6;
+  background: var(--input-bg);
+  border: 1.5px solid var(--line);
   border-radius: 10px;
   padding: 1rem;
   text-align: center;
@@ -514,9 +529,9 @@ function formatPrice(p) {
 .ticket-header-success {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #7a7468;
+  color: var(--muted);
   margin-bottom: 0.5rem;
-  border-bottom: 1px dashed #ede9e1;
+  border-bottom: 1px dashed var(--line);
   padding-bottom: 0.4rem;
 }
 .qr-box {
@@ -525,7 +540,7 @@ function formatPrice(p) {
   border-radius: 6px;
   display: inline-block;
   margin: 0.5rem 0;
-  border: 1px solid #ede9e1;
+  border: 1px solid var(--line);
 }
 .qr-img {
   width: 120px;
@@ -534,48 +549,48 @@ function formatPrice(p) {
 }
 .ticket-qr-code {
   font-size: 0.68rem;
-  color: #7a7468;
-  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+  font-family: var(--font-mono, monospace);
   word-break: break-all;
 }
 
 /* SUMMARY */
 .summary-panel {
-  background: #fff; border: 1.5px solid #d4cfc6;
+  background: var(--panel); border: 1.5px solid var(--line);
   border-radius: 12px; padding: 1.5rem;
   position: sticky; top: 80px;
 }
 .summary-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.1rem; letter-spacing: 1.5px;
-  color: #7a7468; margin-bottom: 1rem;
+  color: var(--muted); margin-bottom: 1rem;
 }
-.s-route { font-size: 1rem; font-weight: 600; color: #0d0d0d; }
+.s-route { font-size: 1rem; font-weight: 600; color: var(--text); }
 .s-time {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.4rem; color: #e85d2f; line-height: 1.2;
+  font-size: 1.4rem; color: var(--accent); line-height: 1.2;
 }
-.s-meta { font-size: 0.78rem; color: #7a7468; margin-top: 0.2rem; }
-.summary-divider { height: 1px; background: #ede9e1; margin: 0.75rem 0; }
-.s-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #7a7468; margin-bottom: 0.5rem; }
+.s-meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
+.summary-divider { height: 1px; background: var(--line); margin: 0.75rem 0; }
+.s-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.5rem; }
 .seat-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .seat-tag {
-  background: #ede9e1; color: #0d0d0d;
+  background: var(--tag-bg); color: var(--text);
   padding: 0.2rem 0.6rem; border-radius: 20px;
   font-size: 0.75rem; font-weight: 600;
 }
 .summary-row {
   display: flex; justify-content: space-between;
-  font-size: 0.83rem; color: #7a7468; margin-bottom: 0.4rem;
+  font-size: 0.83rem; color: var(--muted); margin-bottom: 0.4rem;
 }
-.summary-row.total { font-weight: 600; color: #0d0d0d; font-size: 0.9rem; }
+.summary-row.total { font-weight: 600; color: var(--text); font-size: 0.9rem; }
 .total-price {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.2rem; color: #e85d2f;
+  font-size: 1.2rem; color: var(--accent);
 }
 .gateway-badge {
   margin-top: 0.75rem; text-align: center;
-  background: #ede9e1; border-radius: 6px;
-  padding: 0.4rem; font-size: 0.78rem; color: #7a7468;
+  background: var(--tag-bg); border-radius: 6px;
+  padding: 0.4rem; font-size: 0.78rem; color: var(--muted);
 }
 </style>

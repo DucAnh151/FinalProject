@@ -22,6 +22,9 @@ app.use('/api/bookings', bookingRoutes);
 const { startUnlocker } = require('./jobs/seatUnlocker');
 startUnlocker();
 
+const { startTripCloser } = require('./jobs/tripCloser');
+startTripCloser();
+
 const paymentRoutes = require('./routes/payments');
 app.use('/api/payments', paymentRoutes);
 

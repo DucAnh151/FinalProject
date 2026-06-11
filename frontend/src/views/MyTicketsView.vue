@@ -1,30 +1,14 @@
 <template>
   <div class="tickets-page">
     <!-- NAV -->
-    <nav class="navbar">
-      <RouterLink to="/" class="nav-logo">PAM TRAVEL</RouterLink>
-      <div class="nav-links">
-        <RouterLink to="/">Trang chủ</RouterLink>
-        <RouterLink to="/my-tickets">Vé của tôi</RouterLink>
-      </div>
-      <div class="nav-user">
-        <div class="user-trigger" @click.stop="showUserDropdown = !showUserDropdown">
-          <span class="role-badge">{{ auth.user?.role }}</span>
-          <span class="username">{{ auth.user?.fullName || auth.user?.email }} ▼</span>
-        </div>
-        <div v-if="showUserDropdown" class="dropdown-menu">
-          <RouterLink to="/settings" class="dropdown-item">⚙ Cài đặt tài khoản</RouterLink>
-          <button class="dropdown-item btn-logout-item" @click="logout">🚪 Đăng xuất</button>
-        </div>
-      </div>
-    </nav>
+    <UserHeader />
 
     <div class="content">
       <!-- HEADER -->
       <div class="page-header">
         <div>
-          <div class="page-title">VÉ CỦA TÔI</div>
-          <div class="page-sub">Lịch sử đặt vé và vé điện tử</div>
+          <div class="page-title">{{ ui.t.tickets.title }}</div>
+          <div class="page-sub">{{ ui.t.tickets.sub }}</div>
         </div>
         <!-- Filter -->
         <div class="filter-bar">
@@ -42,15 +26,15 @@
       <!-- Loading -->
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <span>Đang tải vé...</span>
+        <span>{{ ui.t.tickets.loading }}</span>
       </div>
 
       <!-- Empty -->
       <div v-else-if="filteredBookings.length === 0" class="empty-state">
         <div class="empty-icon">🎫</div>
-        <div class="empty-title">Chưa có vé nào</div>
-        <div class="empty-sub">Đặt vé ngay để bắt đầu hành trình</div>
-        <button class="btn-book-now" @click="$router.push('/')">ĐẶT VÉ NGAY</button>
+        <div class="empty-title">{{ ui.t.tickets.emptyTitle }}</div>
+        <div class="empty-sub">{{ ui.t.tickets.emptySub }}</div>
+        <button class="btn-book-now" @click="$router.push('/')">{{ ui.t.tickets.bookNow }}</button>
       </div>
 
       <!-- Danh sách vé -->
@@ -92,7 +76,7 @@
           <!-- Price -->
           <div class="card-price">
             <div class="price-num">{{ formatPrice(b.totalAmount) }}</div>
-            <div class="price-label">Tổng tiền</div>
+            <div class="price-label">{{ ui.t.tickets.totalLabel }}</div>
           </div>
         </div>
       </div>
@@ -116,14 +100,14 @@
         <div class="modal-body">
           <!-- QR codes -->
           <div v-if="selectedBooking.status === 'CONFIRMED'" class="qr-section">
-            <div class="section-label">VÉ ĐIỆN TỬ</div>
+            <div class="section-label">{{ ui.t.tickets.ticketLabel }}</div>
             <div class="qr-list">
               <div
                 v-for="(seat, idx) in selectedBooking.seats"
                 :key="idx"
                 class="qr-item"
               >
-                <div class="qr-seat">Ghế {{ seat }}</div>
+                <div class="qr-seat">{{ ui.t.payment.seats }} {{ seat }}</div>
                 <div class="qr-box">
                   <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(getQrCode(selectedBooking.id, idx))}`" alt="QR Vé" class="qr-img" />
                 </div>
@@ -136,21 +120,21 @@
 
           <!-- Thông tin chuyến -->
           <div class="info-section">
-            <div class="section-label">THÔNG TIN CHUYẾN</div>
+            <div class="section-label">{{ ui.t.tickets.tripInfo }}</div>
             <div class="info-row">
-              <span class="info-key">Mã đặt vé</span>
+              <span class="info-key">{{ ui.t.tickets.bookingId }}</span>
               <span class="info-val mono">#{{ selectedBooking.id }}</span>
             </div>
             <div class="info-row">
-              <span class="info-key">Ghế</span>
+              <span class="info-key">{{ ui.t.tickets.seatsLabel }}</span>
               <span class="info-val">{{ selectedBooking.seats.join(', ') }}</span>
             </div>
             <div class="info-row">
-              <span class="info-key">Ngày đặt</span>
+              <span class="info-key">{{ ui.t.tickets.bookedAt }}</span>
               <span class="info-val">{{ formatDatetime(selectedBooking.createdAt) }}</span>
             </div>
             <div class="info-row">
-              <span class="info-key">Tổng tiền</span>
+              <span class="info-key">{{ ui.t.tickets.totalAmount }}</span>
               <span class="info-val price-highlight">{{ formatPrice(selectedBooking.totalAmount) }}</span>
             </div>
           </div>
@@ -163,28 +147,28 @@
                 class="btn-pay-now"
                 @click="payBooking(selectedBooking)"
               >
-                Thanh toán ngay ({{ formatPrice(selectedBooking.totalAmount) }})
+                {{ ui.t.tickets.payNow }} ({{ formatPrice(selectedBooking.totalAmount) }})
               </button>
               <button
                 class="btn-cancel-pending"
                 :disabled="cancelling"
                 @click="cancelBooking(selectedBooking)"
               >
-                {{ cancelling ? 'Đang hủy...' : 'Hủy đặt vé (Không mất phí)' }}
+                {{ cancelling ? ui.t.tickets.cancellingFree : ui.t.tickets.cancelFree }}
               </button>
             </div>
 
-            <!-- CONFIRMED: Hủy vé & Hoàn tiền 90% -->
+            <!-- CONFIRMED: Hủy vé & Hoàn tiền -->
             <div v-else-if="selectedBooking.status === 'CONFIRMED'" class="confirmed-actions">
               <div class="refund-note">
-                ⚠️ Vé đã thanh toán. Hủy vé sẽ được hoàn lại <strong>90%</strong> số tiền (tương đương <strong>{{ formatPrice(selectedBooking.totalAmount * 0.9) }}</strong>) vào tài khoản cá nhân.
+                {{ ui.t.tickets.refundNote }} <strong>{{ ui.t.tickets.refundRate }}</strong> ({{ formatPrice(selectedBooking.totalAmount * 0.9) }}) {{ ui.t.tickets.refundSuffix }}
               </div>
               <button
                 class="btn-cancel-ticket"
                 :disabled="cancelling"
                 @click="cancelBooking(selectedBooking)"
               >
-                {{ cancelling ? 'Đang xử lý hủy...' : 'HỦY VÉ & NHẬN HOÀN TIỀN 90%' }}
+                {{ cancelling ? ui.t.tickets.cancelling : ui.t.tickets.cancelBtn }}
               </button>
             </div>
             
@@ -197,13 +181,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useUiStore } from '../stores/uiStore'
+import UserHeader from '../components/UserHeader.vue'
 import api from '../services/api'
 
 const router = useRouter()
 const auth   = useAuthStore()
+const ui     = useUiStore()
 
 const bookings        = ref([])
 const loading         = ref(true)
@@ -211,31 +198,21 @@ const activeFilter    = ref('ALL')
 const selectedBooking = ref(null)
 const cancelling      = ref(false)
 const cancelError     = ref('')
-const showUserDropdown = ref(false)
 
-const filters = [
-  { value: 'ALL',       label: 'Tất cả' },
-  { value: 'CONFIRMED', label: 'Đã xác nhận' },
-  { value: 'PENDING',   label: 'Chờ thanh toán' },
-  { value: 'CANCELLED', label: 'Đã hủy' },
-]
+const filters = computed(() => [
+  { value: 'ALL',       label: ui.t.tickets.filterAll },
+  { value: 'CONFIRMED', label: ui.t.tickets.filterConf },
+  { value: 'PENDING',   label: ui.t.tickets.filterPend },
+  { value: 'CANCELLED', label: ui.t.tickets.filterCanc },
+])
 
 const filteredBookings = computed(() => {
   if (activeFilter.value === 'ALL') return bookings.value
   return bookings.value.filter(b => b.status === activeFilter.value)
 })
 
-function closeDropdown() {
-  showUserDropdown.value = false
-}
-
 onMounted(async () => {
-  window.addEventListener('click', closeDropdown)
   await loadBookings()
-})
-
-onUnmounted(() => {
-  window.removeEventListener('click', closeDropdown)
 })
 
 async function loadBookings() {
@@ -256,6 +233,7 @@ function openDetail(booking) {
 }
 
 function payBooking(booking) {
+  // Normalized structure matching BookingView output
   const paymentData = {
     bookingId: booking.id,
     trip: {
@@ -275,20 +253,19 @@ function payBooking(booking) {
 }
 
 async function cancelBooking(booking) {
-  if (!confirm('Bạn có chắc chắn muốn hủy đơn đặt vé này không?')) return
+  if (!confirm(ui.t.tickets?.confirmCancel || 'Bạn có chắc muốn hủy?')) return
 
   cancelling.value = true
   cancelError.value = ''
   try {
     const res = await api.post(`/bookings/${booking.id}/cancel`, { userId: auth.user.id })
     if (res.data.success) {
-      alert('Hủy vé thành công! Số tiền hoàn lại đã được cộng vào ví của bạn (nếu có).')
+      alert(ui.t.tickets?.cancelSuccess || 'Hủy vé thành công')
       
-      // Update local wallet balance if CONFIRMED booking was refunded
-      if (booking.status === 'CONFIRMED') {
-        const refunded = Math.floor(booking.totalAmount * 0.9)
+      // Update local wallet balance using backend-returned refundAmount
+      if (booking.status === 'CONFIRMED' && res.data.refundAmount) {
         const updatedUser = { ...auth.user }
-        updatedUser.walletBalance = (updatedUser.walletBalance || 0) + refunded
+        updatedUser.walletBalance = (updatedUser.walletBalance || 0) + res.data.refundAmount
         auth.setUser(updatedUser)
       }
 
@@ -296,7 +273,7 @@ async function cancelBooking(booking) {
       await loadBookings()
     }
   } catch (e) {
-    cancelError.value = e.response?.data?.error || 'Hủy vé thất bại'
+    cancelError.value = e.response?.data?.error || 'Cancellation failed'
   } finally {
     cancelling.value = false
   }
@@ -309,123 +286,30 @@ function getQrCode(bookingId, idx) {
 
 function statusLabel(status) {
   const map = {
-    CONFIRMED: 'Đã xác nhận',
-    PENDING:   'Chờ thanh toán',
-    CANCELLED: 'Đã hủy',
-    COMPLETED: 'Hoàn thành',
+    CONFIRMED: ui.t.tickets.statusConf,
+    PENDING:   ui.t.tickets.statusPend,
+    CANCELLED: ui.t.tickets.statusCanc,
+    COMPLETED: ui.t.tickets.statusComp,
   }
   return map[status] || status
 }
 
 function formatDatetime(dt) {
   if (!dt) return ''
-  return new Date(dt).toLocaleString('vi-VN', {
+  return new Date(dt).toLocaleString(ui.locale === 'vi' ? 'vi-VN' : 'en-US', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit'
   })
 }
 
 function formatPrice(p) {
-  if (!p) return '0đ'
-  return new Intl.NumberFormat('vi-VN').format(p) + 'đ'
-}
-
-function logout() {
-  auth.logout()
-  router.push('/login')
+  if (!p) return ui.locale === 'vi' ? '0đ' : '0 VND'
+  return new Intl.NumberFormat(ui.locale === 'vi' ? 'vi-VN' : 'en-US').format(p) + (ui.locale === 'vi' ? 'đ' : ' VND')
 }
 </script>
 
 <style scoped>
-.tickets-page { min-height: 100vh; background: #f5f2ec; font-family: 'DM Sans', sans-serif; }
-
-/* NAV */
-.navbar {
-  background: #0d0d0d;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 2.5rem; height: 60px;
-  position: sticky; top: 0; z-index: 100;
-}
-.nav-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.8rem; color: #e85d2f;
-  letter-spacing: 2px; text-decoration: none;
-}
-.nav-links { display: flex; gap: 0.25rem; }
-.nav-links a {
-  color: #aaa; text-decoration: none; font-size: 0.85rem;
-  padding: 0.4rem 0.9rem; border-radius: 4px; transition: all 0.15s;
-}
-.nav-links a:hover { color: #fff; background: rgba(255,255,255,0.08); }
-.nav-links a.router-link-exact-active { color: #e85d2f; }
-.nav-user {
-  position: relative;
-  font-size: 0.82rem;
-  color: #ccc;
-}
-.user-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-.user-trigger:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-.username {
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-.role-badge {
-  font-size: 0.7rem; font-weight: 600;
-  padding: 0.2rem 0.6rem; border-radius: 10px;
-  background: rgba(255,255,255,0.08); color: #e85d2f;
-}
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
-  min-width: 170px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  padding: 0.4rem 0;
-  z-index: 150;
-}
-.dropdown-item {
-  color: #ccc;
-  text-decoration: none;
-  font-size: 0.82rem;
-  padding: 0.6rem 1rem;
-  text-align: left;
-  background: none;
-  border: none;
-  width: 100%;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-.btn-logout-item {
-  border-top: 1px solid #2d2d2d;
-  color: #e85d2f;
-}
-.btn-logout-item:hover {
-  background: rgba(232, 93, 47, 0.08);
-  color: #e85d2f;
-}
+.tickets-page { min-height: 100vh; background: var(--page-bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
 
 /* CONTENT */
 .content { padding: 1.75rem 2.5rem; max-width: 900px; }
@@ -438,38 +322,38 @@ function logout() {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 2rem; letter-spacing: 2px;
 }
-.page-sub { font-size: 0.82rem; color: #7a7468; margin-top: 0.2rem; }
+.page-sub { font-size: 0.82rem; color: var(--muted); margin-top: 0.2rem; }
 
 .filter-bar { display: flex; gap: 0.4rem; }
 .filter-btn {
-  background: #fff; border: 1.5px solid #d4cfc6;
+  background: var(--panel); border: 1.5px solid var(--line);
   border-radius: 20px; padding: 0.4rem 1rem;
-  font-size: 0.8rem; cursor: pointer; transition: all 0.15s; color: #7a7468;
+  font-size: 0.8rem; cursor: pointer; transition: all 0.15s; color: var(--muted);
 }
-.filter-btn:hover { border-color: #0d0d0d; color: #0d0d0d; }
-.filter-btn.active { background: #0d0d0d; border-color: #0d0d0d; color: #fff; }
+.filter-btn:hover { border-color: var(--text); color: var(--text); }
+.filter-btn.active { background: var(--text); border-color: var(--text); color: var(--page-bg); }
 
 /* STATES */
 .loading-state {
   display: flex; align-items: center; gap: 0.75rem;
-  padding: 3rem; color: #7a7468;
+  padding: 3rem; color: var(--muted);
 }
 .spinner {
   width: 20px; height: 20px;
-  border: 2px solid #d4cfc6; border-top-color: #e85d2f;
+  border: 2px solid var(--line); border-top-color: var(--accent);
   border-radius: 50%; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .empty-state {
   text-align: center; padding: 4rem 2rem;
-  background: #fff; border: 1px solid #d4cfc6; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
 }
 .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
 .empty-title { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
-.empty-sub { font-size: 0.85rem; color: #7a7468; margin-bottom: 1.5rem; }
+.empty-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.5rem; }
 .btn-book-now {
-  background: #e85d2f; color: #fff; border: none;
+  background: var(--accent); color: #fff; border: none;
   padding: 0.65rem 1.75rem; border-radius: 8px;
   font-size: 0.88rem; font-weight: 600; cursor: pointer;
 }
@@ -478,13 +362,13 @@ function logout() {
 .booking-list { display: flex; flex-direction: column; gap: 0.75rem; }
 
 .booking-card {
-  background: #fff; border: 1.5px solid #d4cfc6;
+  background: var(--panel); border: 1.5px solid var(--line);
   border-radius: 12px; overflow: hidden;
   display: flex; cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .booking-card:hover {
-  border-color: #e85d2f;
+  border-color: var(--accent);
   box-shadow: 0 4px 16px rgba(232,93,47,0.08);
 }
 
@@ -492,47 +376,47 @@ function logout() {
 .status-confirmed { background: #2d7a4f; }
 .status-pending   { background: #f0a500; }
 .status-cancelled { background: #c0392b; }
-.status-completed { background: #7a7468; }
+.status-completed { background: var(--muted); }
 
 .card-body { flex: 1; padding: 1.1rem 1.25rem; }
 
 .card-main { margin-bottom: 0.6rem; }
 .route-info { display: flex; align-items: center; gap: 0.5rem; }
 .city { font-size: 1rem; font-weight: 600; }
-.route-arrow { color: #e85d2f; font-weight: 600; }
-.departure { font-size: 0.78rem; color: #7a7468; margin-top: 0.2rem; }
+.route-arrow { color: var(--accent); font-weight: 600; }
+.departure { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
 
 .card-seats { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem; }
 .seat-tag {
-  background: #ede9e1; color: #0d0d0d;
+  background: var(--tag-bg); color: var(--text);
   padding: 0.15rem 0.55rem; border-radius: 20px;
   font-size: 0.72rem; font-weight: 600;
 }
 
 .card-meta { display: flex; align-items: center; gap: 0.75rem; }
-.booking-id { font-size: 0.72rem; color: #7a7468; font-family: 'DM Mono', monospace; }
+.booking-id { font-size: 0.72rem; color: var(--muted); font-family: var(--font-mono, monospace); }
 
 .status-badge {
   display: inline-block; padding: 0.15rem 0.6rem;
   border-radius: 20px; font-size: 0.68rem; font-weight: 600;
 }
-.badge-confirmed { background: #d4edda; color: #155724; }
-.badge-pending   { background: #fff3cd; color: #856404; }
-.badge-cancelled { background: #f8d7da; color: #721c24; }
-.badge-completed { background: #e2e3e5; color: #383d41; }
+.badge-confirmed { background: rgba(45, 122, 79, 0.15); color: #2d7a4f; }
+.badge-pending   { background: rgba(240, 165, 0, 0.15); color: #f0a500; }
+.badge-cancelled { background: rgba(192, 57, 43, 0.15); color: #c0392b; }
+.badge-completed { background: var(--tag-bg); color: var(--muted); }
 
 .card-price {
   padding: 1.1rem 1.5rem;
   display: flex; flex-direction: column;
   align-items: flex-end; justify-content: center;
-  border-left: 1px solid #ede9e1;
+  border-left: 1px solid var(--line);
   min-width: 130px;
 }
 .price-num {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.4rem; color: #e85d2f; line-height: 1;
+  font-size: 1.4rem; color: var(--accent); line-height: 1;
 }
-.price-label { font-size: 0.7rem; color: #7a7468; margin-top: 0.2rem; }
+.price-label { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
 
 /* MODAL */
 .modal-overlay {
@@ -542,17 +426,18 @@ function logout() {
   z-index: 200; padding: 1rem;
 }
 .modal {
-  background: #fff; border-radius: 16px;
+  background: var(--panel); border-radius: 16px;
   width: 100%; max-width: 560px;
   max-height: 90vh; overflow-y: auto;
   position: relative;
+  border: 1px solid var(--line);
 }
 .modal-close {
   position: absolute; top: 1rem; right: 1rem;
   background: none; border: none; font-size: 1rem;
-  color: #7a7468; cursor: pointer; padding: 0.25rem 0.5rem;
+  color: var(--muted); cursor: pointer; padding: 0.25rem 0.5rem;
 }
-.modal-close:hover { color: #0d0d0d; }
+.modal-close:hover { color: var(--text); }
 
 .modal-header {
   background: #0d0d0d; padding: 1.5rem;
@@ -564,7 +449,7 @@ function logout() {
 }
 .modal-time {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.2rem; color: #e85d2f; margin: 0.2rem 0 0.5rem;
+  font-size: 1.2rem; color: var(--accent); margin: 0.2rem 0 0.5rem;
 }
 
 .modal-body { padding: 1.5rem; }
@@ -573,7 +458,7 @@ function logout() {
 .section-label {
   font-size: 0.7rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: 1px;
-  color: #7a7468; margin-bottom: 1rem;
+  color: var(--muted); margin-bottom: 1rem;
 }
 .qr-list { display: flex; flex-wrap: wrap; gap: 1rem; }
 .qr-item {
@@ -582,14 +467,14 @@ function logout() {
 }
 .qr-seat {
   font-size: 0.78rem; font-weight: 600;
-  background: #e85d2f; color: #fff;
+  background: var(--accent); color: #fff;
   padding: 0.2rem 0.7rem; border-radius: 20px;
 }
 .qr-box {
   background: #fff;
   padding: 0.5rem;
   border-radius: 8px;
-  border: 1px solid #d4cfc6;
+  border: 1px solid var(--line);
   display: inline-block;
   margin: 0.25rem 0;
 }
@@ -599,8 +484,8 @@ function logout() {
   display: block;
 }
 .qr-code-text {
-  font-size: 0.62rem; color: #7a7468;
-  font-family: 'DM Mono', monospace;
+  font-size: 0.62rem; color: var(--muted);
+  font-family: var(--font-mono, monospace);
   max-width: 160px; text-align: center; word-break: break-all;
 }
 
@@ -609,18 +494,18 @@ function logout() {
 }
 .info-row {
   display: flex; justify-content: space-between;
-  padding: 0.6rem 0; border-bottom: 1px solid #f0ede8;
+  padding: 0.6rem 0; border-bottom: 1px solid var(--line);
   font-size: 0.85rem;
 }
 .info-row:last-child { border-bottom: none; }
-.info-key { color: #7a7468; }
+.info-key { color: var(--muted); }
 .info-val { font-weight: 500; }
-.mono { font-family: 'DM Mono', monospace; font-size: 0.8rem; }
-.price-highlight { color: #e85d2f; font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; }
+.mono { font-family: var(--font-mono, monospace); font-size: 0.8rem; }
+.price-highlight { color: var(--accent); font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; }
 
 /* Action Section */
 .action-section {
-  border-top: 1px dashed #d4cfc6;
+  border-top: 1px dashed var(--line);
   padding-top: 1.25rem;
   margin-top: 1.25rem;
 }
@@ -631,7 +516,7 @@ function logout() {
 }
 .btn-pay-now {
   width: 100%;
-  background: #e85d2f;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -642,13 +527,13 @@ function logout() {
   transition: background 0.15s;
 }
 .btn-pay-now:hover {
-  background: #c44a1e;
+  background: var(--accent-hover);
 }
 .btn-cancel-pending {
   width: 100%;
-  background: #ede9e1;
-  color: #7a7468;
-  border: 1px solid #d4cfc6;
+  background: var(--tag-bg);
+  color: var(--muted);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.75rem;
   font-size: 0.82rem;
@@ -657,24 +542,30 @@ function logout() {
   transition: all 0.15s;
 }
 .btn-cancel-pending:hover:not(:disabled) {
-  background: #d4cfc6;
-  color: #0d0d0d;
+  background: var(--line);
+  color: var(--text);
 }
 .btn-cancel-pending:disabled {
-  background: #ede9e1;
-  color: #c0c0c0;
+  background: var(--tag-bg);
+  color: var(--muted);
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .refund-note {
-  background: #fdf0ef;
+  background: rgba(192, 57, 43, 0.1);
   color: #c0392b;
-  border: 1px solid #f5c6c2;
+  border: 1px solid rgba(192, 57, 43, 0.3);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   font-size: 0.82rem;
   margin-bottom: 1rem;
   line-height: 1.5;
+}
+.refund-note.refund-loyal {
+  background: rgba(45, 122, 79, 0.1);
+  color: #2d7a4f;
+  border-color: rgba(45, 122, 79, 0.3);
 }
 .btn-cancel-ticket {
   width: 100%;
@@ -692,13 +583,14 @@ function logout() {
   background: #a93226;
 }
 .btn-cancel-ticket:disabled {
-  background: #d4cfc6;
+  background: var(--line);
+  color: var(--muted);
   cursor: not-allowed;
 }
 .alert-error {
-  background: #fdf0ef;
+  background: rgba(192, 57, 43, 0.1);
   color: #c0392b;
-  border: 1px solid #f5c6c2;
+  border: 1px solid rgba(192, 57, 43, 0.3);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   font-size: 0.82rem;

@@ -65,6 +65,7 @@
                 <th>{{ ui.t.admin.tableDep }}</th>
                 <th>{{ ui.t.admin.tablePrice }}</th>
                 <th>{{ ui.t.admin.tableStatus }}</th>
+                <th>Tài xế</th>
               </tr>
             </thead>
             <tbody>
@@ -77,6 +78,19 @@
                 <td class="mono">{{ formatDateTime(t.departureTime) }}</td>
                 <td class="mono">{{ formatPrice(t.price) }}</td>
                 <td><span :class="['badge', `badge-${t.status.toLowerCase()}`]">{{ t.status }}</span></td>
+                <td>
+                  <select
+                    :value="t.assignedDriverId || ''"
+                    @change="assignDriver(t.id, $event.target.value)"
+                    style="font-size:0.78rem; border:1px solid var(--line); border-radius:6px;
+                           padding:0.25rem 0.5rem; background:var(--input-bg); color:var(--text); cursor:pointer"
+                  >
+                    <option value="">— Chưa gán —</option>
+                    <option v-for="d in drivers" :key="d.id" :value="d.id">
+                      {{ d.fullName }}
+                    </option>
+                  </select>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -351,6 +365,7 @@ const tabs = computed(() => [
 
 // ── Data refs ──
 const trips    = ref([])
+const drivers  = ref([])
 const bookings = ref([])
 const users    = ref([])
 const payments = ref([])
@@ -449,6 +464,7 @@ const topDays = computed(() =>
 // ── Lifecycle ──
 onMounted(() => {
   loadTrips()
+  loadDrivers()
   loadBookings()
   loadUsers()
   loadPayments()
@@ -467,6 +483,29 @@ async function loadTrips() {
   try { const res = await api.get('/admin/trips'); trips.value = res.data }
   catch { trips.value = [] }
   finally { loading.value = false }
+}
+
+async function loadDrivers() {
+  try {
+    const res = await api.get('/admin/users', { params: { role: 'DRIVER' } })
+    drivers.value = res.data
+  } catch { drivers.value = [] }
+}
+
+async function assignDriver(tripId, driverId) {
+  try {
+    await api.put(`/admin/trips/${tripId}`, {
+      assignedDriverId: driverId ? Number(driverId) : null
+    })
+    const trip = trips.value.find(t => t.id === tripId)
+    if (trip) {
+      trip.assignedDriverId = driverId ? Number(driverId) : null
+      const driver = drivers.value.find(d => d.id == driverId)
+      trip.assignedDriverName = driver?.fullName || null
+    }
+  } catch (e) {
+    alert(e.response?.data?.error || 'Lỗi khi phân công tài xế')
+  }
 }
 
 async function loadBookings() {

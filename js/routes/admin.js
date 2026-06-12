@@ -17,7 +17,8 @@ router.get('/trips', async (req, res) => {
           }
         },
         operators: true,
-        vehicles:  { include: { vehicle_types: true } }
+        vehicles:  { include: { vehicle_types: true } },
+        users:     { select: { id: true, full_name: true } }
       },
       orderBy: { departure_time: 'desc' },
       take: 50
@@ -31,8 +32,10 @@ router.get('/trips', async (req, res) => {
       vehicleType:   t.vehicles.vehicle_types.name,
       departureTime: t.departure_time,
       arrivalTime:   t.arrival_time,
-      price:         t.price_override ?? t.routes.base_price,
-      status:        t.status,
+      price:              t.price_override ?? t.routes.base_price,
+      status:             t.status,
+      assignedDriverId:   t.assigned_driver_id ? Number(t.assigned_driver_id) : null,
+      assignedDriverName: t.users?.full_name || null,
     })))
   } catch (e) {
     console.error('Admin trips error:', e)
@@ -79,7 +82,9 @@ router.get('/bookings', async (req, res) => {
 // GET /api/admin/users
 router.get('/users', async (req, res) => {
   try {
+    const { role } = req.query
     const users = await prisma.users.findMany({
+      where: role ? { role } : undefined,
       orderBy: { created_at: 'desc' }
     })
 
@@ -189,5 +194,24 @@ router.get('/stats', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/driver-trips', getDriverTrips);
 router.get('/driver-manifest/:tripId', getDriverManifest);
+
+router.put('/trips/:id', async (req, res) => {
+  const { assignedDriverId, status, priceOverride } = req.body
+  try {
+    const trip = await prisma.trips.update({
+      where: { id: BigInt(req.params.id) },
+      data: {
+        ...(assignedDriverId !== undefined && {
+          assigned_driver_id: assignedDriverId ? BigInt(assignedDriverId) : null
+        }),
+        ...(status && { status }),
+        ...(priceOverride !== undefined && { price_override: priceOverride }),
+      }
+    })
+    res.json({ success: true, id: Number(trip.id) })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
 
 module.exports = router;

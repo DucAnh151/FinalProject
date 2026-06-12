@@ -5,7 +5,9 @@ const { getDriverTrips, getDriverManifest } = require('./driver');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/trips
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/trips', async (req, res) => {
   try {
     const trips = await prisma.trips.findMany({
@@ -21,21 +23,25 @@ router.get('/trips', async (req, res) => {
         users:     { select: { id: true, full_name: true } }
       },
       orderBy: { departure_time: 'desc' },
-      take: 50
+      take: 100
     })
 
     res.json(trips.map(t => ({
-      id:            Number(t.id),
-      origin:        t.routes.provinces_routes_origin_province_idToprovinces.name,
-      destination:   t.routes.provinces_routes_destination_province_idToprovinces.name,
-      operator:      t.operators.name,
-      vehicleType:   t.vehicles.vehicle_types.name,
-      departureTime: t.departure_time,
-      arrivalTime:   t.arrival_time,
+      id:                 Number(t.id),
+      origin:             t.routes.provinces_routes_origin_province_idToprovinces.name,
+      destination:        t.routes.provinces_routes_destination_province_idToprovinces.name,
+      operator:           t.operators.name,
+      vehicleType:        t.vehicles.vehicle_types.name,
+      departureTime:      t.departure_time,
+      arrivalTime:        t.arrival_time,
       price:              t.price_override ?? t.routes.base_price,
       status:             t.status,
       assignedDriverId:   t.assigned_driver_id ? Number(t.assigned_driver_id) : null,
       assignedDriverName: t.users?.full_name || null,
+      routeId:            t.route_id,
+      vehicleId:          t.vehicle_id,
+      operatorId:         t.operator_id,
+      priceOverride:      t.price_override,
     })))
   } catch (e) {
     console.error('Admin trips error:', e)
@@ -43,7 +49,9 @@ router.get('/trips', async (req, res) => {
   }
 })
 
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/bookings
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/bookings', async (req, res) => {
   try {
     const bookings = await prisma.bookings.findMany({
@@ -51,6 +59,7 @@ router.get('/bookings', async (req, res) => {
         users: true,
         trips: {
           include: {
+            operators: true,
             routes: {
               include: {
                 provinces_routes_origin_province_idToprovinces:      true,
@@ -61,17 +70,19 @@ router.get('/bookings', async (req, res) => {
         }
       },
       orderBy: { created_at: 'desc' },
-      take: 100
+      take: 200
     })
 
     res.json(bookings.map(b => ({
-      id:          Number(b.id),
-      userName:    b.users.full_name,
-      origin:      b.trips.routes.provinces_routes_origin_province_idToprovinces.name,
-      destination: b.trips.routes.provinces_routes_destination_province_idToprovinces.name,
-      totalAmount: Number(b.total_amount),
-      status:      b.status,
-      createdAt:   b.created_at,
+      id:           Number(b.id),
+      userName:     b.users.full_name,
+      origin:       b.trips.routes.provinces_routes_origin_province_idToprovinces.name,
+      destination:  b.trips.routes.provinces_routes_destination_province_idToprovinces.name,
+      operatorId:   b.trips.operator_id,
+      operatorName: b.trips.operators.name,
+      totalAmount:  Number(b.total_amount),
+      status:       b.status,
+      createdAt:    b.created_at,
     })))
   } catch (e) {
     console.error('Admin bookings error:', e)
@@ -79,7 +90,9 @@ router.get('/bookings', async (req, res) => {
   }
 })
 
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/users
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/users', async (req, res) => {
   try {
     const { role } = req.query
@@ -103,7 +116,9 @@ router.get('/users', async (req, res) => {
   }
 })
 
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/payments
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/payments', async (req, res) => {
   try {
     const payments = await prisma.payments.findMany({
@@ -127,14 +142,12 @@ router.get('/payments', async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/stats
-// Thống kê doanh thu 30 ngày gần nhất + summary booking status
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/stats', async (req, res) => {
   try {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    // Doanh thu theo ngày (chỉ payment SUCCESS trong 30 ngày)
     const revenueRaw = await prisma.$queryRaw`
       SELECT
         DATE(paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh') AS day,
@@ -147,24 +160,19 @@ router.get('/stats', async (req, res) => {
       ORDER BY day ASC
     `
 
-    // Tổng doanh thu tất cả thời gian
     const totalRevenueResult = await prisma.payments.aggregate({
       where: { status: 'SUCCESS' },
       _sum:  { amount: true },
       _count: { id: true },
     })
 
-    // Booking summary theo status
     const bookingCounts = await prisma.bookings.groupBy({
       by: ['status'],
       _count: { id: true },
     })
 
     const bookingMap = {}
-    bookingCounts.forEach(b => {
-      bookingMap[b.status] = b._count.id
-    })
-
+    bookingCounts.forEach(b => { bookingMap[b.status] = b._count.id })
     const totalBookings = Object.values(bookingMap).reduce((a, b) => a + b, 0)
 
     res.json({
@@ -174,13 +182,13 @@ router.get('/stats', async (req, res) => {
         count:   Number(r.count),
       })),
       summary: {
-        totalRevenue:       Number(totalRevenueResult._sum.amount || 0),
-        successCount:       totalRevenueResult._count.id,
+        totalRevenue:      Number(totalRevenueResult._sum.amount || 0),
+        successCount:      totalRevenueResult._count.id,
         totalBookings,
-        confirmedBookings:  bookingMap['CONFIRMED']  || 0,
-        pendingBookings:    bookingMap['PENDING']     || 0,
-        cancelledBookings:  bookingMap['CANCELLED']  || 0,
-        completedBookings:  bookingMap['COMPLETED']  || 0,
+        confirmedBookings: bookingMap['CONFIRMED']  || 0,
+        pendingBookings:   bookingMap['PENDING']     || 0,
+        cancelledBookings: bookingMap['CANCELLED']  || 0,
+        completedBookings: bookingMap['COMPLETED']  || 0,
       },
     })
   } catch (e) {
@@ -190,13 +198,348 @@ router.get('/stats', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Driver aliases (backward compat) — logic in /api/driver/*
+// Driver aliases
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/driver-trips', getDriverTrips);
 router.get('/driver-manifest/:tripId', getDriverManifest);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OPERATORS CRUD
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /api/admin/operators — Tất cả nhà xe với số liệu
+router.get('/operators', async (req, res) => {
+  try {
+    const operators = await prisma.operators.findMany({
+      include: {
+        _count: { select: { trips: true, vehicles: true } }
+      },
+      orderBy: { name: 'asc' }
+    })
+    res.json(operators.map(o => ({
+      id:           o.id,
+      name:         o.name,
+      hotline:      o.hotline,
+      isActive:     o.is_active,
+      rating:       o.rating ? Number(o.rating) : null,
+      description:  o.description,
+      tripCount:    o._count.trips,
+      vehicleCount: o._count.vehicles,
+    })))
+  } catch (e) {
+    console.error('Admin operators error:', e)
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+// GET /api/admin/operators/:id — Chi tiết nhà xe (xe + chuyến gần nhất)
+router.get('/operators/:id', async (req, res) => {
+  const id = parseInt(req.params.id)
+  try {
+    const [vehicles, trips] = await Promise.all([
+      prisma.vehicles.findMany({
+        where: { operator_id: id },
+        include: { vehicle_types: true },
+        orderBy: { id: 'asc' }
+      }),
+      prisma.trips.findMany({
+        where: { operator_id: id },
+        include: {
+          routes: {
+            include: {
+              provinces_routes_origin_province_idToprovinces:      true,
+              provinces_routes_destination_province_idToprovinces: true,
+            }
+          },
+          users: { select: { id: true, full_name: true } }
+        },
+        orderBy: { departure_time: 'desc' },
+        take: 30
+      })
+    ])
+
+    res.json({
+      vehicles: vehicles.map(v => ({
+        id:           v.id,
+        name:         v.name || v.license_plate,
+        licensePlate: v.license_plate,
+        vehicleType:  v.vehicle_types.name,
+        totalSeats:   v.vehicle_types.total_seats,
+      })),
+      trips: trips.map(t => ({
+        id:                 Number(t.id),
+        origin:             t.routes.provinces_routes_origin_province_idToprovinces.name,
+        destination:        t.routes.provinces_routes_destination_province_idToprovinces.name,
+        departureTime:      t.departure_time,
+        price:              t.price_override ?? t.routes.base_price,
+        status:             t.status,
+        assignedDriverId:   t.assigned_driver_id ? Number(t.assigned_driver_id) : null,
+        assignedDriverName: t.users?.full_name || null,
+      }))
+    })
+  } catch (e) {
+    console.error('Admin operator detail error:', e)
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+// POST /api/admin/operators — Tạo nhà xe
+router.post('/operators', async (req, res) => {
+  const { name, hotline, description } = req.body
+  if (!name?.trim()) return res.status(400).json({ error: 'Tên nhà xe là bắt buộc' })
+  try {
+    const op = await prisma.operators.create({
+      data: { name: name.trim(), hotline: hotline || null, description: description || null, is_active: true }
+    })
+    res.status(201).json({
+      id: op.id, name: op.name, hotline: op.hotline,
+      isActive: op.is_active, rating: null, description: op.description,
+      tripCount: 0, vehicleCount: 0,
+    })
+  } catch (e) {
+    console.error('Admin create operator error:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// PUT /api/admin/operators/:id — Cập nhật nhà xe
+router.put('/operators/:id', async (req, res) => {
+  const id = parseInt(req.params.id)
+  const { name, hotline, description, isActive } = req.body
+  try {
+    const op = await prisma.operators.update({
+      where: { id },
+      data: {
+        ...(name       !== undefined && { name }),
+        ...(hotline    !== undefined && { hotline }),
+        ...(description !== undefined && { description }),
+        ...(isActive   !== undefined && { is_active: isActive }),
+      }
+    })
+    res.json({ success: true, id: op.id, name: op.name, hotline: op.hotline,
+      isActive: op.is_active, rating: Number(op.rating), description: op.description })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DROPDOWN dành cho form tạo/sửa chuyến
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /api/admin/routes
+router.get('/routes', async (req, res) => {
+  try {
+    const routes = await prisma.routes.findMany({
+      include: {
+        provinces_routes_origin_province_idToprovinces:      true,
+        provinces_routes_destination_province_idToprovinces: true,
+      },
+      orderBy: { id: 'asc' }
+    })
+    res.json(routes.map(r => ({
+      id:              r.id,
+      origin:          r.provinces_routes_origin_province_idToprovinces.name,
+      destination:     r.provinces_routes_destination_province_idToprovinces.name,
+      basePrice:       r.base_price,
+      durationMinutes: r.duration_minutes,
+    })))
+  } catch (e) {
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+// GET /api/admin/vehicles
+router.get('/vehicles', async (req, res) => {
+  try {
+    const vehicles = await prisma.vehicles.findMany({
+      include: { vehicle_types: true, operators: true },
+      orderBy: { id: 'asc' }
+    })
+    res.json(vehicles.map(v => ({
+      id:           v.id,
+      name:         v.name || v.license_plate,
+      licensePlate: v.license_plate,
+      vehicleType:  v.vehicle_types.name,
+      vehicleTypeId: v.vehicle_type_id,
+      totalSeats:   v.vehicle_types.total_seats,
+      operatorId:   v.operator_id,
+      operatorName: v.operators.name,
+    })))
+  } catch (e) {
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+// GET /api/admin/vehicle-types — Danh sách loại xe
+router.get('/vehicle-types', async (req, res) => {
+  try {
+    const types = await prisma.vehicle_types.findMany({ orderBy: { name: 'asc' } })
+    res.json(types.map(t => ({
+      id:         t.id,
+      name:       t.name,
+      totalSeats: t.total_seats,
+      floors:     t.floors,
+    })))
+  } catch (e) {
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+// POST /api/admin/vehicle-types — Tạo loại xe mới
+router.post('/vehicle-types', async (req, res) => {
+  const { name, totalSeats = 16, floors = 1 } = req.body
+  if (!name?.trim()) return res.status(400).json({ error: 'Tên loại xe là bắt buộc' })
+  try {
+    const existing = await prisma.vehicle_types.findFirst({
+      where: { name: { equals: name.trim(), mode: 'insensitive' } }
+    })
+    if (existing) {
+      return res.json({
+        id: existing.id,
+        name: existing.name,
+        totalSeats: existing.total_seats,
+        floors: existing.floors,
+      })
+    }
+    const vt = await prisma.vehicle_types.create({
+      data: {
+        name: name.trim(),
+        total_seats: parseInt(totalSeats),
+        floors: parseInt(floors),
+        seat_layout_json: {
+          floors: parseInt(floors),
+          floor_1: { rows: Math.ceil(totalSeats / 2), cols: 2, aisle_after_col: 1 }
+        }
+      }
+    })
+    res.status(201).json({
+      id: vt.id,
+      name: vt.name,
+      totalSeats: vt.total_seats,
+      floors: vt.floors,
+    })
+  } catch (e) {
+    console.error('Create vehicle type error:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// POST /api/admin/vehicles — Thêm xe mới cho nhà xe
+router.post('/vehicles', async (req, res) => {
+  const { operatorId, vehicleTypeId, licensePlate, name } = req.body
+  if (!operatorId || !vehicleTypeId || !licensePlate?.trim())
+    return res.status(400).json({ error: 'operatorId, vehicleTypeId, licensePlate là bắt buộc' })
+  try {
+    const vehicle = await prisma.vehicles.create({
+      data: {
+        operator_id:     parseInt(operatorId),
+        vehicle_type_id: parseInt(vehicleTypeId),
+        license_plate:   licensePlate.trim().toUpperCase(),
+        name:            name?.trim() || null,
+      },
+      include: { vehicle_types: true, operators: true }
+    })
+    res.status(201).json({
+      id:           vehicle.id,
+      name:         vehicle.name || vehicle.license_plate,
+      licensePlate: vehicle.license_plate,
+      vehicleType:  vehicle.vehicle_types.name,
+      vehicleTypeId: vehicle.vehicle_type_id,
+      totalSeats:   vehicle.vehicle_types.total_seats,
+      operatorId:   vehicle.operator_id,
+      operatorName: vehicle.operators.name,
+    })
+  } catch (e) {
+    if (e.code === 'P2002') return res.status(409).json({ error: `Biển số ${licensePlate} đã tồn tại trong hệ thống` })
+    console.error('Admin create vehicle error:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// DELETE /api/admin/vehicles/:id — Xóa xe (khi xe chưa có chuyến nào)
+router.delete('/vehicles/:id', async (req, res) => {
+  const id = parseInt(req.params.id)
+  try {
+    const tripCount = await prisma.trips.count({ where: { vehicle_id: id } })
+    if (tripCount > 0)
+      return res.status(409).json({ error: `Không thể xóa: xe đã gắn với ${tripCount} chuyến.` })
+    // Xóa seats trước
+    await prisma.seats.deleteMany({ where: { vehicle_id: id } })
+    await prisma.vehicles.delete({ where: { id } })
+    res.json({ success: true })
+  } catch (e) {
+    console.error('Admin delete vehicle error:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRIPS CRUD
+// ─────────────────────────────────────────────────────────────────────────────
+
+const _tripInclude = {
+  routes: {
+    include: {
+      provinces_routes_origin_province_idToprovinces:      true,
+      provinces_routes_destination_province_idToprovinces: true,
+    }
+  },
+  operators: true,
+  vehicles:  { include: { vehicle_types: true } },
+  users:     { select: { id: true, full_name: true } }
+}
+
+function _mapTrip(t) {
+  return {
+    id:                 Number(t.id),
+    origin:             t.routes.provinces_routes_origin_province_idToprovinces.name,
+    destination:        t.routes.provinces_routes_destination_province_idToprovinces.name,
+    operator:           t.operators.name,
+    vehicleType:        t.vehicles.vehicle_types.name,
+    departureTime:      t.departure_time,
+    arrivalTime:        t.arrival_time,
+    price:              t.price_override ?? t.routes.base_price,
+    status:             t.status,
+    assignedDriverId:   t.assigned_driver_id ? Number(t.assigned_driver_id) : null,
+    assignedDriverName: t.users?.full_name || null,
+    routeId:            t.route_id,
+    vehicleId:          t.vehicle_id,
+    operatorId:         t.operator_id,
+    priceOverride:      t.price_override,
+  }
+}
+
+// POST /api/admin/trips
+router.post('/trips', async (req, res) => {
+  const { routeId, vehicleId, operatorId, departureTime, arrivalTime, priceOverride } = req.body
+  if (!routeId || !vehicleId || !operatorId || !departureTime || !arrivalTime)
+    return res.status(400).json({ error: 'Thiếu thông tin bắt buộc' })
+  try {
+    const trip = await prisma.trips.create({
+      data: {
+        route_id:       parseInt(routeId),
+        vehicle_id:     parseInt(vehicleId),
+        operator_id:    parseInt(operatorId),
+        departure_time: new Date(departureTime),
+        arrival_time:   new Date(arrivalTime),
+        price_override: priceOverride ? parseInt(priceOverride) : null,
+        status: 'OPEN',
+      },
+      include: _tripInclude
+    })
+    res.status(201).json(_mapTrip(trip))
+  } catch (e) {
+    console.error('Admin create trip error:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// PUT /api/admin/trips/:id
 router.put('/trips/:id', async (req, res) => {
-  const { assignedDriverId, status, priceOverride } = req.body
+  const { assignedDriverId, status, priceOverride, routeId, vehicleId, operatorId, departureTime, arrivalTime } = req.body
   try {
     const trip = await prisma.trips.update({
       where: { id: BigInt(req.params.id) },
@@ -204,12 +547,39 @@ router.put('/trips/:id', async (req, res) => {
         ...(assignedDriverId !== undefined && {
           assigned_driver_id: assignedDriverId ? BigInt(assignedDriverId) : null
         }),
-        ...(status && { status }),
-        ...(priceOverride !== undefined && { price_override: priceOverride }),
-      }
+        ...(status        && { status }),
+        ...(priceOverride !== undefined && { price_override: priceOverride !== null ? parseInt(priceOverride) : null }),
+        ...(routeId       && { route_id:    parseInt(routeId) }),
+        ...(vehicleId     && { vehicle_id:  parseInt(vehicleId) }),
+        ...(operatorId    && { operator_id: parseInt(operatorId) }),
+        ...(departureTime && { departure_time: new Date(departureTime) }),
+        ...(arrivalTime   && { arrival_time:   new Date(arrivalTime) }),
+      },
+      include: _tripInclude
     })
-    res.json({ success: true, id: Number(trip.id) })
+    res.json({ success: true, ..._mapTrip(trip) })
   } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// DELETE /api/admin/trips/:id
+router.delete('/trips/:id', async (req, res) => {
+  const tripId = BigInt(req.params.id)
+  try {
+    const bookingCount = await prisma.bookings.count({ where: { trip_id: tripId } })
+    if (bookingCount > 0) {
+      return res.status(409).json({
+        error: `Không thể xóa: chuyến này đã có ${bookingCount} đơn đặt vé. Hãy đóng chuyến thay vì xóa.`
+      })
+    }
+    // Xóa theo thứ tự FK: reviews → trip_seat_status → trips
+    await prisma.reviews.deleteMany({ where: { trip_id: tripId } })
+    await prisma.trip_seat_status.deleteMany({ where: { trip_id: tripId } })
+    await prisma.trips.delete({ where: { id: tripId } })
+    res.json({ success: true })
+  } catch (e) {
+    console.error('Admin delete trip error:', e)
     res.status(500).json({ error: e.message })
   }
 })

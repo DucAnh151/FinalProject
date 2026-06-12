@@ -304,9 +304,13 @@
                       <div style="font-weight:500">{{ p.passengerName }}</div>
                       <div class="mono" style="font-size:0.72rem;color:var(--muted)">{{ p.passengerPhone }}</div>
                     </td>
-                    <td>
-                      <span class="seat-tag">{{ p.seatName }}</span>
-                      <span class="floor-hint">T{{ p.floor }}</span>
+                    <td style="white-space:nowrap">
+                      <div class="seat-cell">
+                        <span :class="['seat-chip', p.floor === 2 ? 'seat-chip-f2' : 'seat-chip-f1']">
+                          {{ p.seatName }}
+                        </span>
+                        <span class="floor-badge">{{ ui.locale === 'vi' ? 'T' : 'F' }}{{ p.floor }}</span>
+                      </div>
                     </td>
                     <td style="font-size:0.8rem">{{ p.pickupStop }}</td>
                     <td style="font-size:0.8rem">{{ p.dropoffStop }}</td>
@@ -766,8 +770,46 @@ tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
 tbody tr.row-checkedin { background: rgba(45, 122, 79, 0.1); }
 tbody td { padding: 0.8rem 1rem; font-size: 0.875rem; vertical-align: middle; }
 
-.seat-tag { background: var(--accent); color: #fff; padding: 0.15rem 0.5rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; }
-.floor-hint { font-size: 0.68rem; color: var(--muted); margin-left: 0.25rem; }
+.seat-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+.seat-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 0.28rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+}
+.seat-chip-f1 {
+  background: var(--accent);
+  color: #fff;
+}
+.seat-chip-f2 {
+  background: #6c3de8;
+  color: #fff;
+}
+.floor-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.62rem;
+  font-weight: 700;
+  background: var(--tag-bg);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
 
 .ticket-badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 20px; font-size: 0.68rem; font-weight: 600; }
 .tb-issued    { background: rgba(13, 110, 253, 0.15); color: #0d6efd; }

@@ -71,8 +71,8 @@
           <div class="hint">
             <strong>{{ ui.isEn ? 'Test Accounts:' : 'Tài khoản thử nghiệm:' }}</strong><br>
             👤 admin@pamtravel.vn / admin123 (ADMIN)<br>
-            👤 driver1@travel.com / driver123 (DRIVER)<br>
-            👤 khach1@gmail.com / khach123 (CUSTOMER)
+            👤 driver1@travel.vn / driver123 (DRIVER)<br>
+            👤 khach1@gmail.com / customer123 (CUSTOMER)
           </div>
         </div>
 

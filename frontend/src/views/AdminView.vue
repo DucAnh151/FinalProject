@@ -45,16 +45,61 @@
       <div v-if="activeTab === 'trips'">
         <div class="section-header">
           <span class="section-title">{{ ui.t.admin.trips }}</span>
-          <div class="filter-bar">
-            <select v-model="tripFilter">
-              <option value="">{{ ui.t.admin.allStatus }}</option>
-              <option value="OPEN">OPEN</option>
-              <option value="CLOSED">CLOSED</option>
-              <option value="CANCELLED">CANCELLED</option>
-              <option value="COMPLETED">COMPLETED</option>
-            </select>
+        </div>
+
+        <!-- FILTER ROW -->
+        <div class="trip-filter-row">
+          <!-- Trạng thái -->
+          <div class="filter-group-inline">
+            <span class="filter-label-inline">Trạng thái</span>
+            <div class="filter-chips">
+              <button
+                v-for="s in ['', 'OPEN', 'CLOSED', 'CANCELLED', 'COMPLETED']" :key="s"
+                :class="['chip', { active: tripFilter === s }]"
+                @click="tripFilter = s"
+              >{{ s || 'Tất cả' }}</button>
+            </div>
+          </div>
+
+          <!-- Nhà xe -->
+          <div class="filter-group-inline">
+            <span class="filter-label-inline">Nhà xe</span>
+            <div class="filter-chips">
+              <button
+                :class="['chip', { active: tripOperatorFilter === '' }]"
+                @click="tripOperatorFilter = ''"
+              >Tất cả</button>
+              <button
+                v-for="op in uniqueTripOperators" :key="op"
+                :class="['chip', { active: tripOperatorFilter === op }]"
+                @click="tripOperatorFilter = op"
+              >{{ op }}</button>
+            </div>
+          </div>
+
+          <!-- Khung giờ -->
+          <div class="filter-group-inline">
+            <span class="filter-label-inline">Khung giờ</span>
+            <div class="filter-chips">
+              <button
+                v-for="slot in timeSlots" :key="slot.value"
+                :class="['chip', { active: tripTimeFilter === slot.value }]"
+                @click="tripTimeFilter = slot.value"
+              >{{ slot.label }}</button>
+            </div>
+          </div>
+
+          <!-- Result count + reset -->
+          <div class="filter-result">
+            <span class="result-count"><strong>{{ filteredTrips.length }}</strong> chuyến</span>
+            <button
+              v-if="tripFilter || tripOperatorFilter || tripTimeFilter"
+              class="btn-reset-filter"
+              @click="tripFilter = ''; tripOperatorFilter = ''; tripTimeFilter = ''"
+            >✕ Xoá lọc</button>
           </div>
         </div>
+
         <div class="table-wrap">
           <table>
             <thead>
@@ -69,8 +114,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="loading"><td colspan="6" class="loading">{{ ui.t.admin.loading }}</td></tr>
-              <tr v-else-if="!filteredTrips.length"><td colspan="6" class="loading">{{ ui.t.admin.noData }}</td></tr>
+              <tr v-if="loading"><td colspan="7" class="loading">{{ ui.t.admin.loading }}</td></tr>
+              <tr v-else-if="!filteredTrips.length"><td colspan="7" class="loading">{{ ui.t.admin.noData }}</td></tr>
               <tr v-for="t in filteredTrips" :key="t.id">
                 <td class="mono">#{{ t.id }}</td>
                 <td><strong>{{ t.origin }}</strong> → {{ t.destination }}</td>
@@ -379,9 +424,18 @@ const loadingPayments = ref(false)
 const loadingStats    = ref(false)
 
 // ── Filters ──
-const tripFilter    = ref('')
-const bookingFilter = ref('')
-const userFilter    = ref('')
+const tripFilter         = ref('')
+const tripOperatorFilter = ref('')
+const tripTimeFilter     = ref('')
+const bookingFilter      = ref('')
+const userFilter         = ref('')
+
+const timeSlots = [
+  { value: '',          label: 'Tất cả' },
+  { value: 'morning',   label: '🌅 Sáng (00–12h)' },
+  { value: 'afternoon', label: '☀️ Chiều (12–18h)' },
+  { value: 'evening',   label: '🌙 Tối (18–24h)' },
+]
 
 // ── Summary cards (top row) ──
 const summaryCards = computed(() => [
@@ -397,9 +451,27 @@ const summaryCards = computed(() => [
 ])
 
 // ── Filters computed ──
-const filteredTrips = computed(() =>
-  tripFilter.value ? trips.value.filter(t => t.status === tripFilter.value) : trips.value
-)
+const uniqueTripOperators = computed(() => [...new Set(trips.value.map(t => t.operator))])
+
+const filteredTrips = computed(() => {
+  let list = trips.value
+  if (tripFilter.value) {
+    list = list.filter(t => t.status === tripFilter.value)
+  }
+  if (tripOperatorFilter.value) {
+    list = list.filter(t => t.operator === tripOperatorFilter.value)
+  }
+  if (tripTimeFilter.value) {
+    list = list.filter(t => {
+      const h = new Date(t.departureTime).getHours()
+      if (tripTimeFilter.value === 'morning')   return h >= 0  && h < 12
+      if (tripTimeFilter.value === 'afternoon') return h >= 12 && h < 18
+      if (tripTimeFilter.value === 'evening')   return h >= 18 && h < 24
+      return true
+    })
+  }
+  return list
+})
 const filteredBookings = computed(() =>
   bookingFilter.value ? bookings.value.filter(b => b.status === bookingFilter.value) : bookings.value
 )
@@ -769,4 +841,87 @@ tbody td { padding: 0.8rem 1rem; font-size: 0.875rem; }
 .legend-val { margin-left: auto; font-weight: 600; color: var(--text); font-family: var(--font-mono, monospace); font-size: 0.78rem; }
 
 .top-days-panel { margin-top: 0.5rem; }
-</style>
+
+/* ── TRIP FILTER ROW ── */
+.trip-filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+.filter-group-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.filter-label-inline {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  min-width: 72px;
+  flex-shrink: 0;
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.chip {
+  background: var(--tag-bg);
+  border: 1.5px solid var(--line);
+  color: var(--muted);
+  border-radius: 20px;
+  padding: 0.25rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.filter-result {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.result-count {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.result-count strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+.btn-reset-filter {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 20px;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-reset-filter:hover {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+</style>  

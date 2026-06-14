@@ -372,18 +372,21 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════ -->
-      <!-- TAB: NGƯỜI DÙNG                                       -->
+      <!-- TAB: NGƯỜI DÙNG                                        -->
       <!-- ══════════════════════════════════════════════════════ -->
       <div v-if="activeTab === 'users'">
         <div class="section-header">
           <span class="section-title">{{ ui.t.admin.users }}</span>
-          <div class="filter-bar">
-            <select v-model="userFilter">
-              <option value="">{{ ui.t.admin.allRoles }}</option>
-              <option value="CUSTOMER">CUSTOMER</option>
-              <option value="DRIVER">DRIVER</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            <button class="btn-add-trip" @click="openAddUser">+ Thêm tài khoản</button>
+            <div class="filter-bar">
+              <select v-model="userFilter">
+                <option value="">{{ ui.t.admin.allRoles }}</option>
+                <option value="CUSTOMER">CUSTOMER</option>
+                <option value="DRIVER">DRIVER</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="table-wrap">
@@ -393,23 +396,50 @@
               <th>{{ ui.t.admin.tableFullName }}</th>
               <th>{{ ui.t.admin.tableEmail }}</th>
               <th>{{ ui.t.admin.tableRole }}</th>
+              <th>Ví</th>
+              <th>Hạng</th>
               <th>{{ ui.t.admin.tableActive }}</th>
               <th>{{ ui.t.admin.tableCreated }}</th>
+              <th style="width:140px">···</th>
             </tr></thead>
             <tbody>
-              <tr v-if="loadingUsers"><td colspan="6" class="loading">{{ ui.t.admin.loading }}</td></tr>
-              <tr v-else-if="!filteredUsers.length"><td colspan="6" class="loading">{{ ui.t.admin.noData }}</td></tr>
+              <tr v-if="loadingUsers"><td colspan="9" class="loading">{{ ui.t.admin.loading }}</td></tr>
+              <tr v-else-if="!filteredUsers.length"><td colspan="9" class="loading">{{ ui.t.admin.noData }}</td></tr>
               <tr v-for="u in filteredUsers" :key="u.id">
                 <td class="mono">#{{ u.id }}</td>
-                <td><strong>{{ u.fullName }}</strong></td>
-                <td class="mono">{{ u.email || u.phone }}</td>
-                <td><span :class="['badge', `badge-role-${u.role.toLowerCase()}`]">{{ u.role }}</span></td>
                 <td>
-                  <span :class="['badge', u.isActive ? 'badge-open' : 'badge-cancelled']">
+                  <strong>{{ u.fullName }}</strong>
+                  <div class="mono" style="font-size:0.72rem;color:var(--muted)">{{ u.phone || '—' }}</div>
+                </td>
+                <td class="mono" style="font-size:0.78rem">{{ u.email || '—' }}</td>
+                <td><span :class="['badge', `badge-role-${u.role.toLowerCase()}`]">{{ u.role }}</span></td>
+                <td class="mono" style="font-size:0.78rem">{{ formatPrice(u.walletBalance || 0) }}</td>
+                <td :key="`tier-${u.id}-${u.loyaltyTier}`">
+                    <span v-if="u.loyaltyTier === 'VIP_CUSTOMER'" class="badge" style="background:rgba(245,158,11,0.15);color:#d97706">VIP ⭐</span>
+                    <span v-else class="mono" style="font-size:0.72rem">STD</span>
+                </td>
+                <td><span :class="['badge', u.isActive ? 'badge-open' : 'badge-cancelled']">
                     {{ u.isActive ? 'Active' : 'Inactive' }}
                   </span>
                 </td>
                 <td class="mono">{{ formatDate(u.createdAt) }}</td>
+                <td><div class="action-btns">
+                    <!-- Không cho sửa ADMIN -->
+                    <button v-if="u.role !== 'ADMIN'" class="act-btn act-edit" title="Sửa thông tin" @click="openEditUser(u)">✏️</button>
+                    <!-- Chỉ nạp tiền cho CUSTOMER -->
+                    <button v-if="u.role === 'CUSTOMER'" class="act-btn act-open" title="Nạp tiền" @click="openTopupUser(u)">💰</button>
+                    <!-- Chỉ nâng VIP cho CUSTOMER chưa VIP -->
+                    <button v-if="u.role === 'CUSTOMER' && u.loyaltyTier !== 'VIP_CUSTOMER'" class="act-btn" title="Nâng VIP"
+                      style="font-size:0.8rem" @click="promoteVip(u)">⭐</button>
+                    <!-- Xóa: chỉ cho CUSTOMER -->
+                    <button v-if="u.role === 'CUSTOMER'" class="act-btn act-delete" title="Xóa tài khoản"
+                      @click="deleteUser(u)">🗑️</button>
+                    <!-- Khóa/mở: không áp dụng cho ADMIN -->
+                    <button v-if="u.role !== 'ADMIN'" class="act-btn" :title="u.isActive ? 'Khóa tài khoản' : 'Mở khóa'"
+                      :style="u.isActive ? 'color:#c0392b' : 'color:#2d7a4f'"
+                      @click="toggleUserActive(u)">{{ u.isActive ? '🔒' : '🔓' }}</button>
+                    </div>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -708,7 +738,119 @@
           </form>
         </div>
       </div>
+      <!-- MODAL: Thêm / Sửa User -->
+      <div v-if="showUserModal" class="modal-overlay" @click.self="showUserModal = false">
+        <div class="modal-box" role="dialog" style="max-width:480px">
+          <div class="modal-header">
+            <h2 class="modal-title">{{ editingUser ? 'Sửa tài khoản' : 'Thêm tài khoản mới' }}</h2>
+            <button class="modal-close" @click="showUserModal = false">✕</button>
+          </div>
+          <form @submit.prevent="submitUserForm" class="modal-form">
+
+            <div class="form-row">
+              <label class="form-label">Họ và tên *</label>
+              <input v-model="userForm.fullName" type="text" class="form-input" required
+                placeholder="Nguyễn Văn A" />
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-col">
+                <label class="form-label">Số điện thoại</label>
+                <input v-model="userForm.phone" type="tel" class="form-input"
+                  placeholder="0901234567" />
+              </div>
+              <div class="form-col">
+                <label class="form-label">Email</label>
+                <input v-model="userForm.email" type="email" class="form-input"
+                  placeholder="email@gmail.com" />
+              </div>
+            </div>
+
+            <div class="form-row" v-if="!editingUser">
+              <label class="form-label">Mật khẩu * (tối thiểu 6 ký tự)</label>
+              <input v-model="userForm.password" type="password" class="form-input"
+                placeholder="••••••" />
+            </div>
+
+            <div class="form-row" v-if="!editingUser">
+              <label class="form-label">Vai trò</label>
+              <select v-model="userForm.role" class="form-select">
+                <option value="CUSTOMER">CUSTOMER</option>
+                <option value="DRIVER">DRIVER</option>
+              </select>
+            </div>
+
+            <!-- Phân quyền khi đang sửa -->
+            <div class="form-row" v-if="editingUser">
+              <label class="form-label">Vai trò</label>
+              <div style="display:flex;gap:0.5rem">
+                <button type="button"
+                  :class="['chip', editingUser.role === 'CUSTOMER' ? 'active' : '']"
+                  @click="changeRole(editingUser, 'CUSTOMER')">CUSTOMER</button>
+                <button type="button"
+                  :class="['chip', editingUser.role === 'DRIVER' ? 'active' : '']"
+                  @click="changeRole(editingUser, 'DRIVER')">DRIVER</button>
+              </div>
+              <span style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">
+                Vai trò hiện tại: <strong>{{ editingUser.role }}</strong>
+              </span>
+            </div>
+
+            <p v-if="userFormError" class="form-error">{{ userFormError }}</p>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-cancel" @click="showUserModal = false">Hủy</button>
+              <button type="submit" class="btn-save" :disabled="savingUser">
+                {{ savingUser ? 'Đang lưu...' : (editingUser ? 'Cập nhật' : 'Tạo tài khoản') }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- MODAL: Nạp tiền hộ -->
+      <div v-if="showTopupModal" class="modal-overlay" @click.self="showTopupModal = false">
+        <div class="modal-box" role="dialog" style="max-width:400px">
+          <div class="modal-header">
+            <h2 class="modal-title">Nạp tiền hộ</h2>
+            <button class="modal-close" @click="showTopupModal = false">✕</button>
+          </div>
+          <form @submit.prevent="submitTopup" class="modal-form">
+
+            <div style="background:var(--tag-bg);border-radius:8px;padding:0.85rem 1rem;margin-bottom:0.5rem">
+              <div style="font-size:0.78rem;color:var(--muted)">Tài khoản</div>
+              <div style="font-weight:600;margin-top:0.2rem">{{ topupUser?.fullName }}</div>
+              <div style="font-size:0.8rem;color:var(--muted)">
+                Số dư hiện tại: <strong style="color:var(--accent)">{{ formatPrice(topupUser?.walletBalance || 0) }}</strong>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label class="form-label">Số tiền nạp (đ) *</label>
+              <input v-model="topupAmount" type="number" min="10000" step="10000"
+                class="form-input" placeholder="VD: 100000" required />
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin-bottom:0.5rem">
+              <button v-for="amt in [50000,100000,200000,500000]" :key="amt"
+                type="button" class="btn-amt" @click="topupAmount = amt">
+                +{{ formatPrice(amt) }}
+              </button>
+            </div>
+
+            <p v-if="topupFormError" class="form-error">{{ topupFormError }}</p>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-cancel" @click="showTopupModal = false">Hủy</button>
+              <button type="submit" class="btn-save" :disabled="savingTopup">
+                {{ savingTopup ? 'Đang nạp...' : 'Xác nhận nạp tiền' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </Teleport>
+    
 
 
   </div>
@@ -752,6 +894,21 @@ const opDetailVehicles   = ref([])
 const opDetailTrips      = ref([])
 const loadingOperators   = ref(false)
 const loadingOpDetail    = ref(false)
+
+// ── User CRUD state ──
+const showUserModal     = ref(false)
+const showTopupModal    = ref(false)
+const editingUser       = ref(null)
+const topupUser         = ref(null)
+const savingUser        = ref(false)
+const savingTopup       = ref(false)
+const userFormError     = ref('')
+const topupFormError    = ref('')
+const topupAmount       = ref('')
+
+const userForm = ref({
+  fullName: '', phone: '', email: '', password: '', role: 'CUSTOMER'
+})
 
 // ── Operator modal ──
 const showOperatorModal  = ref(false)
@@ -922,6 +1079,149 @@ function switchTab(key) {
   if (key === 'stats' && !statsData.value.revenueByDay?.length) loadStats()
 }
 
+// ── User CRUD functions ──
+function openAddUser() {
+  editingUser.value = null
+  userFormError.value = ''
+  userForm.value = { fullName: '', phone: '', email: '', password: '', role: 'CUSTOMER' }
+  showUserModal.value = true
+}
+
+function openEditUser(u) {
+  editingUser.value = u
+  userFormError.value = ''
+  userForm.value = {
+    fullName: u.fullName || '',
+    phone:    u.phone || '',
+    email:    u.email || '',
+    password: '',
+    role:     u.role,
+  }
+  showUserModal.value = true
+}
+
+async function submitUserForm() {
+  userFormError.value = ''
+  const f = userForm.value
+  if (!f.fullName?.trim()) { userFormError.value = 'Họ tên là bắt buộc'; return }
+  if (!editingUser.value && !f.phone && !f.email) { userFormError.value = 'Cần SĐT hoặc email'; return }
+  if (!editingUser.value && (!f.password || f.password.length < 6)) {
+    userFormError.value = 'Mật khẩu tối thiểu 6 ký tự'; return
+  }
+  savingUser.value = true
+  try {
+    if (editingUser.value) {
+      const res = await api.put(`/admin/users/${editingUser.value.id}`, {
+        fullName: f.fullName,
+        phone:    f.phone || null,
+        email:    f.email || null,
+      })
+      const idx = users.value.findIndex(u => u.id === editingUser.value.id)
+      if (idx !== -1) users.value[idx] = { ...users.value[idx], ...res.data }
+    } else {
+      const res = await api.post('/admin/users', {
+        fullName: f.fullName,
+        phone:    f.phone || null,
+        email:    f.email || null,
+        password: f.password,
+        role:     f.role,
+      })
+      users.value.unshift({
+        ...res.data,
+        walletBalance: 0,
+        loyaltyTier: 'STANDARD',
+        isActive: true,
+      })
+    }
+    showUserModal.value = false
+  } catch (e) {
+    userFormError.value = e.response?.data?.error || 'Lỗi khi lưu tài khoản'
+  } finally {
+    savingUser.value = false
+  }
+}
+
+async function toggleUserActive(u) {
+  const action = u.isActive ? 'khóa' : 'mở khóa'
+  if (!confirm(`Bạn có chắc muốn ${action} tài khoản ${u.fullName}?`)) return
+  try {
+    await api.put(`/admin/users/${u.id}`, { isActive: !u.isActive })
+    const idx = users.value.findIndex(x => x.id === u.id)
+    if (idx !== -1) users.value[idx].isActive = !u.isActive
+  } catch (e) {
+    alert(e.response?.data?.error || 'Lỗi khi thay đổi trạng thái')
+  }
+}
+
+async function promoteVip(u) {
+  if (!confirm(`Nâng ${u.fullName} lên VIP_CUSTOMER?`)) return
+  try {
+    await api.put(`/admin/users/${u.id}/vip`)
+    const idx = users.value.findIndex(x => x.id === u.id)
+    if (idx !== -1) {
+      // Dùng splice để Vue detect thay đổi
+      users.value.splice(idx, 1, { ...users.value[idx], loyaltyTier: 'VIP_CUSTOMER' })
+    }
+    alert(`✅ Đã nâng ${u.fullName} lên VIP!`)
+  } catch (e) {
+    alert(e.response?.data?.error || 'Lỗi khi nâng VIP')
+  }
+}
+
+async function deleteUser(u) {
+  if (!confirm(`Xóa tài khoản "${u.fullName}"?\nTài khoản sẽ bị khóa và ẩn khỏi danh sách.`)) return
+  try {
+    await api.delete(`/admin/users/${u.id}`)
+    users.value = users.value.filter(x => x.id !== u.id)
+    if (showUserModal.value && editingUser.value?.id === u.id) {
+      showUserModal.value = false
+    }
+  } catch (e) {
+    alert(e.response?.data?.error || 'Lỗi khi xóa tài khoản')
+  }
+}
+
+async function changeRole(u, newRole) {
+  if (u.role === newRole) return
+  if (!confirm(`Chuyển ${u.fullName} sang role ${newRole}?`)) return
+  try {
+    await api.put(`/admin/users/${u.id}/role`, { role: newRole })
+    const idx = users.value.findIndex(x => x.id === u.id)
+    if (idx !== -1) {
+      users.value[idx].role = newRole
+      editingUser.value = { ...editingUser.value, role: newRole }
+    }
+  } catch (e) {
+    alert(e.response?.data?.error || 'Lỗi khi phân quyền')
+  }
+}
+
+function openTopupUser(u) {
+  topupUser.value = u
+  topupAmount.value = ''
+  topupFormError.value = ''
+  showTopupModal.value = true
+}
+
+async function submitTopup() {
+  topupFormError.value = ''
+  const amount = Number(topupAmount.value)
+  if (!amount || amount < 10000) {
+    topupFormError.value = 'Số tiền tối thiểu 10.000đ'; return
+  }
+  savingTopup.value = true
+  try {
+    const res = await api.post(`/admin/users/${topupUser.value.id}/topup`, { amount })
+    const idx = users.value.findIndex(u => u.id === topupUser.value.id)
+    if (idx !== -1) users.value[idx].walletBalance = res.data.walletBalance
+    showTopupModal.value = false
+  } catch (e) {
+    topupFormError.value = e.response?.data?.error || 'Lỗi khi nạp tiền'
+  } finally {
+    savingTopup.value = false
+  }
+}
+
 // ── Loaders ──
 async function loadOperators() {
   loadingOperators.value = true
@@ -953,8 +1253,14 @@ async function loadBookings() {
 
 async function loadUsers() {
   loadingUsers.value = true
-  try { const res = await api.get('/admin/users'); users.value = res.data }
-  catch { users.value = [] }
+  try {
+    const res = await api.get('/admin/users')
+    users.value = res.data.map(u => ({
+      ...u,
+      walletBalance: u.walletBalance || 0,
+      loyaltyTier:   u.loyaltyTier || 'STANDARD',
+    }))
+  } catch { users.value = [] }
   finally { loadingUsers.value = false }
 }
 

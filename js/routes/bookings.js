@@ -19,9 +19,10 @@ router.post('/', async (req, res) => {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      // Lấy thông tin user — kiểm tra role + is_active
       const user = await tx.users.findUnique({
         where: { id: BigInt(userId) },
-        select: { role: true, is_active: true }
+        select: { role: true, is_active: true, loyalty_tier: true }  // ← gộp 2 lần query thành 1
       });
 
       if (!user || !user.is_active)
@@ -31,7 +32,8 @@ router.post('/', async (req, res) => {
 
       // 1. Kiểm tra chuyến xe tồn tại và đang OPEN
       const trip = await tx.trips.findUnique({
-        where: { id: BigInt(tripId) }
+        where: { id: BigInt(tripId) },
+        include: { routes: true }  // ← gộp luôn include routes để dùng ở bước 6
       });
       if (!trip || trip.status !== 'OPEN')
         throw new Error('TRIP_NOT_AVAILABLE');
@@ -41,7 +43,7 @@ router.post('/', async (req, res) => {
       if (trip.departure_time <= minDeparture)
         throw new Error('TRIP_CLOSING_SOON');
 
-      // 2. Lấy trạng thái ghế hiện tại — lock rows để tránh race condition
+      // 2. Lấy trạng thái ghế hiện tại
       const seatStatuses = await tx.trip_seat_status.findMany({
         where: {
           trip_id: BigInt(tripId),
@@ -71,27 +73,24 @@ router.post('/', async (req, res) => {
             }
           },
           update: {
-            status:              'LOCKED',
-            locked_until:        expiresAt,
-            locked_by_user_id:   BigInt(userId),
+            status:            'LOCKED',
+            locked_until:      expiresAt,
+            locked_by_user_id: BigInt(userId),
           },
           create: {
-            trip_id:             BigInt(tripId),
-            seat_id:             BigInt(seatId),
-            status:              'LOCKED',
-            locked_until:        expiresAt,
-            locked_by_user_id:   BigInt(userId),
+            trip_id:           BigInt(tripId),
+            seat_id:           BigInt(seatId),
+            status:            'LOCKED',
+            locked_until:      expiresAt,
+            locked_by_user_id: BigInt(userId),
           }
         });
       }
 
-      // 6. Lấy giá vé
-      const tripWithRoute = await tx.trips.findUnique({
-        where: { id: BigInt(tripId) },
-        include: { routes: true }
-      });
-      const price      = tripWithRoute.price_override ?? tripWithRoute.routes.base_price;
-      const totalAmount = price * selectedSeatIds.length;
+      // 6. Tính giá vé — dùng trip đã include routes ở bước 1
+      const price = trip.price_override ?? trip.routes.base_price;
+      const discount = user.loyalty_tier === 'VIP_CUSTOMER' ? 0.8 : 1;  // BR-08: VIP giảm 20%
+      const totalAmount = Math.round(price * selectedSeatIds.length * discount);
 
       // 7. Tạo booking
       const booking = await tx.bookings.create({
@@ -205,10 +204,10 @@ router.get('/my', async (req, res) => {
 
 // PUT /api/bookings/:id/passengers
 router.put('/:id/passengers', async (req, res) => {
-  const { passengers, pickupStopId, dropoffStopId } = req.body
+  const { passengers, pickupStopId, dropoffStopId } = req.body;
 
   if (!passengers?.length)
-    return res.status(400).json({ error: 'Thiếu thông tin hành khách' })
+    return res.status(400).json({ error: 'Thiếu thông tin hành khách' });
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -218,11 +217,11 @@ router.put('/:id/passengers', async (req, res) => {
           pickup_stop_id:  pickupStopId,
           dropoff_stop_id: dropoffStopId,
         }
-      })
+      });
 
       await tx.booking_seats.deleteMany({
         where: { booking_id: BigInt(req.params.id) }
-      })
+      });
 
       await tx.booking_seats.createMany({
         data: passengers.map(p => ({
@@ -231,17 +230,15 @@ router.put('/:id/passengers', async (req, res) => {
           passenger_name:  p.name,
           passenger_phone: p.phone,
         }))
-      })
-    })
+      });
+    });
 
-    res.json({ success: true })
+    res.json({ success: true });
   } catch (e) {
-    console.error('Update passengers error:', e)
-    res.status(500).json({ error: 'Lỗi server' })
+    console.error('Update passengers error:', e);
+    res.status(500).json({ error: 'Lỗi server' });
   }
-})
-
-// module.exports = router; ← dòng này giữ nguyên bên dưới
+});
 
 // POST /api/bookings/:id/cancel
 router.post('/:id/cancel', async (req, res) => {
@@ -266,42 +263,41 @@ router.post('/:id/cancel', async (req, res) => {
       if (Number(booking.user_id) !== Number(userId))
         throw new Error('FORBIDDEN');
       if (booking.status === 'CANCELLED')
-        return booking;
+        return { booking, refundAmount: 0, refundRate: 0 };
       if (booking.status === 'CONFIRMED' && booking.tickets.some(t => t.status === 'USED'))
         throw new Error('TICKET_ALREADY_USED');
 
       const seatIds = booking.booking_seats.map(bs => bs.seat_id);
 
-      // Refund logic: check loyalty tier for fee exemption
+      // Refund logic — BR-04: phí hủy 10%, hoàn 90%
       let refundAmount = 0n;
       let refundRate = 0;
       const successPayment = booking.payments.find(p => p.status === 'SUCCESS');
+
       if (booking.status === 'CONFIRMED' && successPayment) {
-        const user = await tx.users.findUnique({
-          where: { id: BigInt(userId) },
+        const userForRefund = await tx.users.findUnique({
+          where:  { id: BigInt(userId) },
           select: { id: true, wallet_balance: true }
         });
-        // BR-04: phí hủy 10%, hoàn 90%
+
         refundRate = 0.9;
         refundAmount = BigInt(Math.floor(Number(successPayment.amount) * refundRate));
 
-        if (user) {
-          const newBalance = BigInt(user.wallet_balance || 0) + refundAmount;
+        if (userForRefund) {
+          const newBalance = BigInt(userForRefund.wallet_balance || 0) + refundAmount;
           await tx.users.update({
             where: { id: BigInt(userId) },
-            data: { wallet_balance: newBalance }
+            data:  { wallet_balance: newBalance }
           });
-
-          const feeDesc = `Hoàn tiền 90% hủy vé #${booking.id} (${successPayment.gateway})`;
 
           await tx.wallet_transactions.create({
             data: {
-              user_id: BigInt(userId),
-              type: 'REFUND',
-              amount: refundAmount,
+              user_id:       BigInt(userId),
+              type:          'REFUND',
+              amount:        refundAmount,
               balance_after: newBalance,
-              description: feeDesc,
-              booking_id: booking.id
+              description:   `Hoàn tiền 90% hủy vé #${booking.id} (${successPayment.gateway})`,
+              booking_id:    booking.id
             }
           });
         }
@@ -331,12 +327,12 @@ router.post('/:id/cancel', async (req, res) => {
     });
 
     res.json({
-      success: true,
-      bookingId: Number(result.booking.id),
-      status: 'CANCELLED',
+      success:      true,
+      bookingId:    Number(result.booking.id),
+      status:       'CANCELLED',
       reason,
       refundAmount: result.refundAmount,
-      refundRate: result.refundRate,
+      refundRate:   result.refundRate,
     });
   } catch (e) {
     if (e.message === 'BOOKING_NOT_FOUND')
@@ -349,6 +345,6 @@ router.post('/:id/cancel', async (req, res) => {
     console.error('Cancel booking error:', e);
     res.status(500).json({ error: 'Lỗi server' });
   }
-})
+});
 
 module.exports = router;

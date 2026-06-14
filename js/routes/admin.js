@@ -102,13 +102,15 @@ router.get('/users', async (req, res) => {
     })
 
     res.json(users.map(u => ({
-      id:        Number(u.id),
-      fullName:  u.full_name,
-      email:     u.email,
-      phone:     u.phone_number,
-      role:      u.role,
-      isActive:  u.is_active,
-      createdAt: u.created_at,
+      id:            Number(u.id),
+      fullName:      u.full_name,
+      email:         u.email,
+      phone:         u.phone_number,
+      role:          u.role,
+      isActive:      u.is_active,
+      createdAt:     u.created_at,
+      walletBalance: Number(u.wallet_balance || 0),
+      loyaltyTier:   u.loyalty_tier || 'STANDARD',
     })))
   } catch (e) {
     console.error('Admin users error:', e)
@@ -580,6 +582,127 @@ router.delete('/trips/:id', async (req, res) => {
     res.json({ success: true })
   } catch (e) {
     console.error('Admin delete trip error:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USERS CRUD
+// ─────────────────────────────────────────────────────────────────────────────
+const bcrypt = require('bcrypt')
+
+// POST /api/admin/users — Tạo tài khoản mới
+router.post('/users', async (req, res) => {
+  const { fullName, phone, email, password, role = 'CUSTOMER' } = req.body
+  if (!fullName?.trim()) return res.status(400).json({ error: 'Họ tên là bắt buộc' })
+  if (!phone && !email) return res.status(400).json({ error: 'Cần SĐT hoặc email' })
+  if (!password || password.length < 6) return res.status(400).json({ error: 'Mật khẩu tối thiểu 6 ký tự' })
+  if (!['CUSTOMER','DRIVER'].includes(role)) return res.status(400).json({ error: 'Role không hợp lệ' })
+  try {
+    const existing = await prisma.users.findFirst({
+      where: { OR: [phone ? { phone_number: phone } : undefined, email ? { email } : undefined].filter(Boolean) }
+    })
+    if (existing) return res.status(409).json({ error: 'SĐT hoặc email đã tồn tại' })
+    const hash = await bcrypt.hash(password, 10)
+    const user = await prisma.users.create({
+      data: { full_name: fullName.trim(), phone_number: phone || null, email: email || null, password_hash: hash, role, is_active: true }
+    })
+    res.status(201).json({ id: Number(user.id), fullName: user.full_name, email: user.email, phone: user.phone_number, role: user.role, isActive: user.is_active, createdAt: user.created_at })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// PUT /api/admin/users/:id — Sửa thông tin
+router.put('/users/:id', async (req, res) => {
+  const { fullName, phone, email, isActive } = req.body
+  try {
+    const user = await prisma.users.update({
+      where: { id: BigInt(req.params.id) },
+      data: {
+        ...(fullName !== undefined && { full_name: fullName }),
+        ...(phone !== undefined && { phone_number: phone || null }),
+        ...(email !== undefined && { email: email || null }),
+        ...(isActive !== undefined && { is_active: isActive }),
+      }
+    })
+    res.json({ id: Number(user.id), fullName: user.full_name, email: user.email, phone: user.phone_number, role: user.role, isActive: user.is_active })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// PUT /api/admin/users/:id/role — Phân quyền
+router.put('/users/:id/role', async (req, res) => {
+  const { role } = req.body
+  if (!['CUSTOMER','DRIVER'].includes(role)) return res.status(400).json({ error: 'Role không hợp lệ' })
+  try {
+    const user = await prisma.users.update({ where: { id: BigInt(req.params.id) }, data: { role } })
+    res.json({ id: Number(user.id), role: user.role })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// POST /api/admin/users/:id/topup — Nạp tiền hộ
+router.post('/users/:id/topup', async (req, res) => {
+  const { amount } = req.body
+  if (!amount || amount <= 0) return res.status(400).json({ error: 'Số tiền không hợp lệ' })
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.users.findUnique({ where: { id: BigInt(req.params.id) } })
+      if (!user) throw new Error('USER_NOT_FOUND')
+      const newBalance = BigInt(user.wallet_balance || 0) + BigInt(amount)
+      const updated = await tx.users.update({ where: { id: user.id }, data: { wallet_balance: newBalance } })
+      await tx.wallet_transactions.create({ data: { user_id: user.id, type: 'TOPUP', amount: BigInt(amount), balance_after: newBalance, description: 'Admin nạp hộ' } })
+      return updated
+    })
+    res.json({ walletBalance: Number(result.wallet_balance) })
+  } catch (e) {
+    if (e.message === 'USER_NOT_FOUND') return res.status(404).json({ error: 'Không tìm thấy user' })
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// PUT /api/admin/users/:id/vip — Nâng VIP thủ công
+router.put('/users/:id/vip', async (req, res) => {
+  try {
+    const user = await prisma.users.update({ where: { id: BigInt(req.params.id) }, data: { loyalty_tier: 'VIP_CUSTOMER' } })
+    res.json({ id: Number(user.id), loyaltyTier: user.loyalty_tier })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// DELETE /api/admin/users/:id — Xóa tài khoản CUSTOMER
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const target = await prisma.users.findUnique({ where: { id: BigInt(req.params.id) } })
+    if (!target) return res.status(404).json({ error: 'Không tìm thấy user' })
+    if (target.role === 'ADMIN') return res.status(403).json({ error: 'Không thể xóa tài khoản ADMIN' })
+    if (target.role !== 'CUSTOMER') return res.status(400).json({ error: 'Chỉ có thể xóa tài khoản CUSTOMER' })
+
+    const activeBookings = await prisma.bookings.count({
+      where: { user_id: BigInt(req.params.id), status: { in: ['PENDING', 'CONFIRMED', 'CASH_PENDING'] } }
+    })
+    if (activeBookings > 0)
+      return res.status(409).json({ error: `Không thể xóa: user còn ${activeBookings} đơn đặt vé đang hoạt động` })
+
+    await prisma.$transaction(async (tx) => {
+      const userId = BigInt(req.params.id)
+      // Xóa theo thứ tự FK
+      await tx.notifications.deleteMany({ where: { user_id: userId } })
+      await tx.wallet_transactions.deleteMany({ where: { user_id: userId } })
+      await tx.reviews.deleteMany({ where: { user_id: userId } })
+      await tx.trip_seat_status.deleteMany({ where: { locked_by_user_id: userId } })
+      // Xóa tickets → booking_seats → payments → refunds → bookings
+      const bookings = await tx.bookings.findMany({ where: { user_id: userId }, select: { id: true } })
+      const bookingIds = bookings.map(b => b.id)
+      if (bookingIds.length) {
+        await tx.tickets.deleteMany({ where: { booking_id: { in: bookingIds } } })
+        await tx.booking_seats.deleteMany({ where: { booking_id: { in: bookingIds } } })
+        const payments = await tx.payments.findMany({ where: { booking_id: { in: bookingIds } }, select: { id: true } })
+        await tx.refunds.deleteMany({ where: { payment_id: { in: payments.map(p => p.id) } } })
+        await tx.payments.deleteMany({ where: { booking_id: { in: bookingIds } } })
+        await tx.bookings.deleteMany({ where: { user_id: userId } })
+      }
+      await tx.users.delete({ where: { id: userId } })
+    })
+
+    res.json({ success: true, message: 'Đã xóa tài khoản thành công' })
+  } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })

@@ -164,7 +164,7 @@ Tìm trong bảng faqs theo keywords →
 | Mã | Quy tắc | Chi tiết |
 |----|---------|---------|
 | BR-01 | Seat Lock | Chọn ghế → LOCKED 5 phút. Hết hạn → tự nhả về AVAILABLE |
-| BR-02 | Giới hạn vé | Tối đa 5 ghế mỗi lần đặt |
+| BR-02 | Giới hạn vé | Tối đa 5 ghế mỗi lần đặt. Người đặt có thể đại diện điền thông tin cho cả nhóm bằng nút "Đặt hộ cả nhóm" — thông  tin người đặt sẽ được fill vào tất cả các ghế |
 | BR-03 | Chống double booking | Database Transaction + upsert trip_seat_status |
 | BR-04 | Phí hủy vé | Hủy bất kỳ lúc nào: phí **10%**, hoàn **90%** vào ví |
 | BR-05 | Cảnh báo trước thanh toán | Hiển thị "Hủy vé sẽ mất 10%" trước khi confirm |

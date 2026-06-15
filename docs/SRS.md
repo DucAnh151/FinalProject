@@ -182,6 +182,7 @@ GET /api/landing/stats
 ### REQ-05: Booking — Nhập thông tin hành khách
 - Form nhập tên, SĐT cho từng ghế đã chọn
 - Checkbox "Tôi là người đi" → tự điền thông tin từ tài khoản đang đăng nhập
+- Nút "Đặt hộ cả nhóm" → tự điền thông tin người đặt vào tất cả các ghế còn lại (chỉ ghế đầu tiên set isSelf = true)
 - Chọn điểm đón (PICKUP) và điểm trả (DROPOFF) từ danh sách route_stops
 - Countdown 5 phút hiển thị thời gian giữ ghế còn lại
 - Cảnh báo: "Sau khi thanh toán, hủy vé sẽ bị tính phí 10%" (BR-05)

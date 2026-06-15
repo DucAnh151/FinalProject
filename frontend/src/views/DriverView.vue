@@ -21,10 +21,16 @@
           {{ ui.locale === 'vi' ? 'EN' : 'VI' }}
         </button>
 
-        <div class="nav-user">
-          <span class="role-badge">DRIVER</span>
-          <span class="username">{{ auth.user?.fullName }}</span>
-          <button class="btn-logout" @click="logout">{{ ui.t.nav.logout }}</button>
+        <div class="nav-user" style="position:relative">
+          <div class="user-trigger-driver" @click.stop="showDriverDropdown = !showDriverDropdown">
+            <span class="role-badge">DRIVER</span>
+            <span class="username">{{ auth.user?.fullName }} </span>
+            <img :src="driverAvatarSrc" class="nav-avatar-small" :alt="auth.user?.fullName" />▼
+          </div>
+          <div v-if="showDriverDropdown" class="dropdown-menu-dark">
+            <RouterLink to="/settings" class="dropdown-item-dark">⚙ {{ ui.t.nav.settings }}</RouterLink>
+            <button class="dropdown-item-dark btn-logout-item" @click="logout">🚪 {{ ui.t.nav.logout }}</button>
+          </div>
         </div>
       </div>
     </nav>
@@ -341,7 +347,15 @@ import api from '../services/api'
 const router = useRouter()
 const auth   = useAuthStore()
 const ui     = useUiStore()
+const showDriverDropdown = ref(false)
 
+const driverAvatarSrc = computed(() => {
+  if (auth.user?.avatarUrl) return auth.user.avatarUrl
+  const initial = (auth.user?.fullName || 'D')[0].toUpperCase()
+  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect width="28" height="28" rx="6" fill="%23e85d2f"/><text x="50%" y="56%" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="white">${initial}</text></svg>`
+})
+
+function closeDriverDropdown() { showDriverDropdown.value = false }
 // ── Views ──
 const mainView = ref('trips')
 
@@ -600,6 +614,78 @@ function formatPrice(p) {
 .text-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.user-trigger-driver {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.user-trigger-driver:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.user-trigger-driver {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.user-trigger-driver:hover {
+  background: rgba(255,255,255,0.08);
+}
+.nav-avatar-small {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+.dropdown-menu-dark {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  min-width: 170px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem 0;
+  z-index: 150;
+}
+.dropdown-item-dark {
+  color: #ccc;
+  text-decoration: none;
+  font-size: 0.82rem;
+  padding: 0.6rem 1rem;
+  text-align: left;
+  background: none;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: inherit;
+}
+.dropdown-item-dark:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+.btn-logout-item {
+  border-top: 1px solid #2d2d2d;
+  color: #e85d2f;
 }
 
 /* CONTENT */

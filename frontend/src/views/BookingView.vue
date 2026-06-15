@@ -21,7 +21,17 @@
       <div class="layout">
         <!-- LEFT: form -->
         <div class="form-panel">
-          <div class="panel-title">{{ ui.t.booking.passengerTitle }}</div>
+          <div class="panel-title-row">
+            <div class="panel-title">{{ ui.t.booking.passengerTitle }}</div>
+            <button
+              v-if="booking.seats.length > 1"
+              type="button"
+              class="btn-fill-all"
+              @click="fillAllAsBooker"
+            >
+              {{ ui.t.booking.fillAllBtn }} 👥 Đặt nhóm
+            </button>
+          </div>
 
           <!-- Mỗi ghế = 1 form row -->
           <div
@@ -221,7 +231,7 @@ onMounted(async () => {
   if (bookStore.passengers && bookStore.passengers.length === booking.value.seats.length) {
     passengers.value = JSON.parse(JSON.stringify(bookStore.passengers))
   } else {
-    passengers.value = booking.value.seats.map(() => ({ name: '', phone: '', isSelf: false }))
+    passengers.value = booking.value.seats.map(() => ({ name: '', phone: '', isSelf: false, filledByBooker: false }))
   }
 
   if (bookStore.pickupStopId) {
@@ -252,19 +262,33 @@ onMounted(async () => {
 
 function toggleSelf(idx) {
   if (passengers.value[idx].isSelf) {
-    // Uncheck other passengers' isSelf
-    passengers.value.forEach((p, i) => {
-      if (i !== idx) p.isSelf = false
+    // Clear các ghế khác nếu đang được fill hộ
+    passengers.value = passengers.value.map((p, i) => {
+      if (i === idx) {
+        return { ...p, name: auth.user?.fullName || '', phone: auth.user?.phone || '', isSelf: true, filledByBooker: false }
+      }
+      return p.filledByBooker ? { ...p, name: '', phone: '', isSelf: false, filledByBooker: false } : { ...p, isSelf: false }
     })
-
-    // Fill info from logged in user
-    passengers.value[idx].name = auth.user?.fullName || ''
-    passengers.value[idx].phone = auth.user?.phone || ''
   } else {
-    // Clear info if unchecked
-    passengers.value[idx].name = ''
-    passengers.value[idx].phone = ''
+    // Bỏ tích → xóa thông tin ghế đó
+    passengers.value = passengers.value.map((p, i) =>
+      i === idx ? { ...p, name: '', phone: '', isSelf: false } : p
+    )
   }
+}
+
+// BR-02: Đặt hộ cả nhóm — fill thông tin người đặt vào tất cả các ghế
+// isSelf chỉ set cho ghế đầu tiên, các ghế còn lại đánh dấu filledByBooker
+function fillAllAsBooker() {
+  const bookerName  = auth.user?.fullName || ''
+  const bookerPhone = auth.user?.phone    || ''
+  passengers.value = passengers.value.map((p, i) => ({
+    ...p,
+    name:           bookerName,
+    phone:          bookerPhone,
+    isSelf:         i === 0,
+    filledByBooker: i !== 0,
+  }))
 }
 
 onUnmounted(() => {
@@ -412,10 +436,34 @@ function formatPrice(p) {
   background: var(--panel); border: 1.5px solid var(--line);
   border-radius: 12px; padding: 1.75rem;
 }
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
 .panel-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.1rem; letter-spacing: 1.5px;
-  color: var(--muted); margin-bottom: 1.25rem;
+  color: var(--muted);
+  margin-bottom: 0;
+}
+.btn-fill-all {
+  background: none;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-fill-all:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 .passenger-block {

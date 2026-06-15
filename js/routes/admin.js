@@ -404,15 +404,26 @@ router.post('/vehicle-types', async (req, res) => {
         floors: existing.floors,
       })
     }
+    const floorsInt = parseInt(floors)
+    const totalSeatsInt = parseInt(totalSeats)
+    const seatsPerFloor = Math.ceil(totalSeatsInt / floorsInt)
+    const rowsPerFloor  = Math.ceil(seatsPerFloor / 2)
+
+    const layoutJson = { floors: floorsInt }
+    for (let f = 1; f <= floorsInt; f++) {
+      layoutJson[`floor_${f}`] = {
+        rows:           rowsPerFloor,
+        cols:           2,
+        aisle_after_col: 1,
+      }
+    }
+
     const vt = await prisma.vehicle_types.create({
       data: {
-        name: name.trim(),
-        total_seats: parseInt(totalSeats),
-        floors: parseInt(floors),
-        seat_layout_json: {
-          floors: parseInt(floors),
-          floor_1: { rows: Math.ceil(totalSeats / 2), cols: 2, aisle_after_col: 1 }
-        }
+        name:             name.trim(),
+        total_seats:      totalSeatsInt,
+        floors:           floorsInt,
+        seat_layout_json: layoutJson,
       }
     })
     res.status(201).json({

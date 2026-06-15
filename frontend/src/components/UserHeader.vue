@@ -44,7 +44,8 @@
         <div class="user-trigger" @click.stop="showUserDropdown = !showUserDropdown">
           <span class="role-badge">{{ auth.user?.role }}</span>
           <span v-if="auth.user?.loyaltyTier === 'VIP_CUSTOMER'" class="vip-badge">VIP</span>
-          <span class="username">{{ auth.user?.fullName || auth.user?.email }} ▼</span>
+          <span class="username">{{ auth.user?.fullName || auth.user?.email }} </span>
+          <img :src="avatarSrc" class="nav-avatar" :alt="auth.user?.fullName" />▼
         </div>
         <div v-if="showUserDropdown" class="dropdown-menu">
           <RouterLink to="/settings" class="dropdown-item">⚙ {{ ui.t.nav.settings }}</RouterLink>
@@ -56,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { useUiStore } from '../stores/uiStore'
@@ -71,8 +72,13 @@ const props = defineProps({
 const router = useRouter()
 const auth = useAuthStore()
 const ui = useUiStore()
-
 const showUserDropdown = ref(false)
+const avatarSrc = computed(() => {
+  if (auth.user?.avatarUrl) return auth.user.avatarUrl;
+  // fallback: chữ cái đầu tên
+  const initial = (auth.user?.fullName || auth.user?.email || 'U')[0].toUpperCase();
+  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" rx="8" fill="%23e85d2f"/><text x="50%" y="56%" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="white">${initial}</text></svg>`;
+});
 
 function closeDropdown() {
   showUserDropdown.value = false
@@ -197,6 +203,15 @@ function logout() {
 .text-btn:hover {
   border-color: #e85d2f;
   color: #e85d2f;
+}
+
+.nav-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
 }
 
 .nav-user {

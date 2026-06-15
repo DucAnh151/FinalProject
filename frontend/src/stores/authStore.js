@@ -35,6 +35,25 @@ export const useAuthStore = defineStore('auth', {
       sessionStorage.setItem('pam_user', JSON.stringify(this.user))
       return res.data
     },
+    
+    async changePassword(currentPassword, newPassword) {
+      const res = await api.put('/auth/change-password', {
+        userId: this.user.id,
+        currentPassword,
+        newPassword,
+      });
+      return res.data;
+    },
+
+    async updateAvatar(avatarUrl) {
+      const res = await api.put('/auth/avatar', {
+        userId: this.user.id,
+        avatarUrl,
+      });
+      this.user = res.data.user;
+      sessionStorage.setItem('pam_user', JSON.stringify(this.user));
+      return res.data;
+    },
 
     setUser(user) {
       this.user = user

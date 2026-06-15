@@ -179,4 +179,81 @@ router.put('/profile', async (req, res) => {
     res.status(500).json({ error: 'Lỗi server' });
   }
 });
+
+// PUT /api/auth/change-password
+router.put('/change-password', async (req, res) => {
+  const { userId, currentPassword, newPassword } = req.body;
+
+  if (!userId) return res.status(400).json({ error: 'Thiếu userId' });
+  if (!currentPassword || !newPassword)
+    return res.status(400).json({ error: 'Thiếu thông tin mật khẩu' });
+  if (newPassword.length < 6)
+    return res.status(400).json({ error: 'Mật khẩu mới tối thiểu 6 ký tự' });
+
+  try {
+    const user = await prisma.users.findUnique({
+      where: { id: BigInt(userId) },
+      select: { password_hash: true }
+    });
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
+
+    const match = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!match) return res.status(401).json({ error: 'Mật khẩu hiện tại không đúng' });
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await prisma.users.update({
+      where: { id: BigInt(userId) },
+      data: { password_hash: hash }
+    });
+
+    res.json({ success: true, message: 'Đã cập nhật mật khẩu thành công' });
+  } catch (e) {
+    console.error('Change password error:', e);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
+// PUT /api/auth/avatar
+router.put('/avatar', async (req, res) => {
+  const { userId, avatarUrl } = req.body;
+  if (!userId) return res.status(400).json({ error: 'Thiếu userId' });
+
+  try {
+    // Đảm bảo cột tồn tại
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT'
+    );
+
+    const rows = await prisma.$queryRaw`
+      UPDATE users SET avatar_url = ${avatarUrl || null}
+      WHERE id = ${BigInt(userId)}
+      RETURNING id, full_name, email, phone_number, role,
+                avatar_url, wallet_balance, loyalty_tier,
+                total_tickets, total_trips, payment_pin
+    `;
+    if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
+
+    const u = rows[0];
+    res.json({
+      success: true,
+      user: {
+        id:            Number(u.id),
+        fullName:      u.full_name,
+        email:         u.email,
+        phone:         u.phone_number,
+        role:          u.role,
+        avatarUrl:     u.avatar_url,
+        walletBalance: Number(u.wallet_balance || 0),
+        loyaltyTier:   u.loyalty_tier || 'STANDARD',
+        totalTickets:  u.total_tickets || 0,
+        totalTrips:    u.total_trips || 0,
+        hasPin:        !!u.payment_pin,
+      }
+    });
+  } catch (e) {
+    console.error('Avatar update error:', e);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
 module.exports = router;

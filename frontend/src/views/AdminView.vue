@@ -715,6 +715,23 @@
                 Nhập tên loại xe mới hoặc tên đã có. Hệ thống tự tạo nếu chưa tồn tại.
               </span>
             </div>
+
+            <div class="form-row">
+              <label class="form-label">Số ghế *</label>
+              <input
+                v-model.number="vehicleForm.totalSeats"
+                type="number"
+                min="1"
+                max="60"
+                class="form-input"
+                required
+                placeholder="VD: 16, 34, 40..."
+                id="veh-form-seats"
+              />
+              <span style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem">
+                Số ghế sẽ được dùng để tạo sơ đồ chọn ghế cho khách hàng.
+              </span>
+            </div>
             <!-- Biển số -->
             <div class="form-row">
               <label class="form-label">Biển số xe *</label>
@@ -923,7 +940,7 @@ const savingVehicle      = ref(false)
 const vehFormError       = ref('')
 const loadingVehicleTypes = ref(false)
 const vehicleTypes       = ref([])
-const vehicleForm = ref({ operatorId: '', vehicleTypeId: '', vehicleTypeName: '', licensePlate: '', name: '' })// context: khi mở từ trip form, sẽ refresh formVehicles sau khi thêm
+const vehicleForm = ref({ operatorId: '', vehicleTypeId: '', vehicleTypeName: '', licensePlate: '', name: '', totalSeats: 16 })
 const vehicleFromTripContext = ref(false)
 
 // ── Mini-tabs for operator detail ──
@@ -1362,7 +1379,7 @@ async function loadVehicleTypes() {
 async function openAddVehicle(op) {
   vehicleFromTripContext.value = false
   vehFormError.value = ''
-  vehicleForm.value = { operatorId: op?.id || '', vehicleTypeId: '', licensePlate: '', name: '' }
+  vehicleForm.value = { operatorId: op?.id || '', vehicleTypeId: '', vehicleTypeName: '', licensePlate: '', name: '', totalSeats: 16 }
   await loadVehicleTypes()  // ← chờ data xong mới mở modal
   showVehicleModal.value = true
 }
@@ -1376,6 +1393,7 @@ async function openAddVehicleFromTrip() {
     vehicleTypeId: '',
     licensePlate:  '',
     name:          '',
+    totalSeats:    16,
   }
   await loadVehicleTypes()  // ← chờ data xong mới mở modal
   showVehicleModal.value = true
@@ -1385,7 +1403,11 @@ async function submitVehicleForm() {
   vehFormError.value = ''
   const f = vehicleForm.value
   if (!f.operatorId || !f.vehicleTypeName?.trim() || !f.licensePlate?.trim()) {
-    vehFormError.value = 'Vui lòng điền đầy đủ thông tin bắt buộc'
+  vehFormError.value = 'Vui lòng điền đầy đủ thông tin bắt buộc'
+  return
+  }
+  if (!f.totalSeats || f.totalSeats < 1 || f.totalSeats > 60) {
+    vehFormError.value = 'Số ghế phải từ 1 đến 60'
     return
   }
   savingVehicle.value = true
@@ -1395,14 +1417,24 @@ async function submitVehicleForm() {
     const existing = vehicleTypes.value.find(
       t => t.name.toLowerCase().trim() === f.vehicleTypeName.toLowerCase().trim()
     )
-    if (existing) {
-      vehicleTypeId = existing.id
-    } else {
+    if (existing && existing.totalSeats === f.totalSeats) {
+  // Trùng tên VÀ trùng số ghế → dùng lại
+  vehicleTypeId = existing.id
+  } else if (existing && existing.totalSeats !== f.totalSeats) {
+  // Trùng tên nhưng khác số ghế → tạo loại xe mới với tên khác một chút
+  const vtRes = await api.post('/admin/vehicle-types', {
+    name: `${f.vehicleTypeName.trim()} (${f.totalSeats} ghế)`,
+    totalSeats: f.totalSeats,
+    floors: f.totalSeats > 20 ? 2 : 1,
+  })
+  vehicleTypeId = vtRes.data.id
+  vehicleTypes.value.push(vtRes.data)
+}  else {
       // Tạo mới vehicle type
       const vtRes = await api.post('/admin/vehicle-types', {
         name: f.vehicleTypeName.trim(),
-        totalSeats: 16,  // default, có thể thêm field sau
-        floors: 1,
+        totalSeats: f.totalSeats,
+        floors: f.totalSeats > 20 ? 2 : 1,
       })
       vehicleTypeId = vtRes.data.id
       vehicleTypes.value.push(vtRes.data)

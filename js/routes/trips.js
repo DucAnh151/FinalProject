@@ -13,8 +13,9 @@ router.get('/search', async (req, res) => {
 
   try {
     // Ngày bắt đầu và kết thúc
-    const start = new Date(departureDate);
-    const end   = new Date(departureDate);
+    // Parse theo giờ VN (+07:00) để tránh lệch ngày
+    const start = new Date(`${departureDate}T00:00:00+07:00`);
+    const end   = new Date(`${departureDate}T23:59:59+07:00`);
     end.setDate(end.getDate() + 1);
 
     // BR-06: không hiển thị chuyến khởi hành trong vòng 60 phút tới

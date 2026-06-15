@@ -442,6 +442,33 @@ router.post('/vehicles', async (req, res) => {
       },
       include: { vehicle_types: true, operators: true }
     })
+
+    // Tự động tạo ghế cho xe mới
+    const totalSeats = vehicle.vehicle_types.total_seats
+    const floors     = vehicle.vehicle_types.floors
+    const seatsPerFloor = Math.ceil(totalSeats / floors)
+    const rows       = Math.ceil(seatsPerFloor / 2)
+    const colNames   = ['A', 'B']
+
+    const seatsData = []
+    for (let floor = 1; floor <= floors; floor++) {
+      for (let row = 1; row <= rows; row++) {
+        for (let col = 1; col <= 2; col++) {
+          const seatNum = (floor - 1) * seatsPerFloor + (row - 1) * 2 + col
+          if (seatNum > totalSeats) break
+          seatsData.push({
+            vehicle_id:   vehicle.id,
+            seat_name:    `${floor}-${colNames[col-1]}${row}`,
+            floor_number: floor,
+            row_number:   row,
+            col_number:   col,
+          })
+        }
+      }
+    }
+
+    await prisma.seats.createMany({ data: seatsData })
+
     res.status(201).json({
       id:           vehicle.id,
       name:         vehicle.name || vehicle.license_plate,

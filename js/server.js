@@ -43,6 +43,9 @@ app.use('/api/wallet', walletRoutes);
 const landingRoutes = require('./routes/landing');
 app.use('/api/landing', landingRoutes);
 
+const reviewRoutes = require('./routes/reviews');
+app.use('/api/reviews', reviewRoutes);
+
 const pool = new Pool({
   host:     process.env.DB_HOST,
   port:     parseInt(process.env.DB_PORT),

@@ -210,9 +210,40 @@ async function confirmCash(req, res) {
   }
 }
 
+// PUT /api/driver/trips/:id/complete — Driver xác nhận hoàn thành chuyến
+async function completeTrip(req, res) {
+  const { driverId } = req.body;
+  const tripId = req.params.id;
+
+  if (!driverId)
+    return res.status(400).json({ error: 'Thiếu driverId' });
+
+  try {
+    const trip = await prisma.trips.findUnique({ where: { id: BigInt(tripId) } });
+
+    if (!trip)
+      return res.status(404).json({ error: 'Không tìm thấy chuyến xe' });
+    if (Number(trip.assigned_driver_id) !== Number(driverId))
+      return res.status(403).json({ error: 'Bạn không được phân công chuyến này' });
+    if (!['OPEN', 'CLOSED'].includes(trip.status))
+      return res.status(400).json({ error: 'Chuyến không ở trạng thái có thể hoàn thành' });
+
+    const updated = await prisma.trips.update({
+      where: { id: BigInt(tripId) },
+      data: { status: 'COMPLETED' },
+    });
+
+    res.json({ success: true, id: Number(updated.id), status: updated.status });
+  } catch (e) {
+    console.error('Complete trip error:', e);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+}
+
 router.get('/trips', getDriverTrips);
 router.get('/trips/:tripId/manifest', getDriverManifest);
 router.put('/bookings/:id/confirm-cash', confirmCash);
+router.put('/trips/:id/complete', completeTrip);
 
 module.exports = router;
 module.exports.getDriverTrips = getDriverTrips;

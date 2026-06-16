@@ -143,7 +143,7 @@ router.get('/my', async (req, res) => {
   try {
     const bookings = await prisma.bookings.findMany({
       where:   { user_id: BigInt(userId) },
-      include: {
+      include: { reviews: true,
         trips: {
           include: {
             routes: {
@@ -173,6 +173,8 @@ router.get('/my', async (req, res) => {
       origin:      b.trips.routes.provinces_routes_origin_province_idToprovinces.name,
       destination: b.trips.routes.provinces_routes_destination_province_idToprovinces.name,
       departure:   b.trips.departure_time,
+      tripStatus:  b.trips.status,
+      hasReview:   b.reviews.length > 0,
       trip: {
         id:            Number(b.trip_id),
         origin:        b.trips.routes.provinces_routes_origin_province_idToprovinces.name,
@@ -346,5 +348,44 @@ router.post('/:id/cancel', async (req, res) => {
     res.status(500).json({ error: 'Lỗi server' });
   }
 });
+
+// POST /api/bookings/:id/complete — Customer xác nhận hoàn thành chuyến
+router.post('/:id/complete', async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'Thiếu userId' });
+
+  try {
+    const booking = await prisma.bookings.findUnique({
+      where: { id: BigInt(req.params.id) },
+      include: { trips: true },
+    });
+
+    if (!booking)
+      return res.status(404).json({ error: 'Không tìm thấy đơn đặt vé' });
+    if (Number(booking.user_id) !== Number(userId))
+      return res.status(403).json({ error: 'Bạn không có quyền với đơn này' });
+    if (booking.status !== 'CONFIRMED')
+      return res.status(400).json({ error: 'Chỉ đơn đã xác nhận mới có thể hoàn thành' });
+    if (booking.trips.status !== 'COMPLETED')
+      return res.status(400).json({ error: 'Chuyến xe chưa hoàn thành' });
+
+    const updated = await prisma.bookings.update({
+      where: { id: booking.id },
+      data: { status: 'COMPLETED' },
+    });
+
+    await prisma.users.update({
+      where: { id: BigInt(userId) },
+      data: { total_trips: { increment: 1 } },
+    });
+
+    res.json({ success: true, bookingId: Number(updated.id), status: updated.status });
+  } catch (e) {
+    console.error('Complete booking error:', e);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
+
 
 module.exports = router;

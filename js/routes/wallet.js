@@ -140,12 +140,26 @@ router.post('/topup/confirm', async (req, res) => {
         data:  { is_read: true },
       });
 
-      return updated;
+      // BR-07: nâng VIP nếu tổng nạp tích lũy >= 10 triệu
+      const totalTopup = await tx.wallet_transactions.aggregate({
+        where: { user_id: BigInt(userId), type: 'TOPUP' },
+        _sum:  { amount: true },
+      });
+      let finalUser = updated;
+      if (Number(totalTopup._sum.amount || 0) >= 10000000 && updated.loyalty_tier !== 'VIP_CUSTOMER') {
+        finalUser = await tx.users.update({
+          where: { id: BigInt(userId) },
+          data:  { loyalty_tier: 'VIP_CUSTOMER' },
+        });
+      }
+
+      return finalUser;      
     });
 
     res.json({
       success:       true,
       walletBalance: Number(result.wallet_balance),
+      loyaltyTier:   result.loyalty_tier,
       message:       `Đã nạp thành công ${Number(amount).toLocaleString('vi-VN')}đ vào ví!`,
     });
   } catch (e) {

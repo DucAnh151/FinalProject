@@ -106,6 +106,17 @@
             >
               {{ ui.t.driver.scanTickets }}
             </button>
+
+            <!-- NÚT HOÀN THÀNH CHUYẾN -->
+            <button
+              v-if="trip.status !== 'COMPLETED'"
+              class="btn-complete-trip"
+              :disabled="completingId === trip.id"
+              @click="completeTrip(trip)"
+            >
+              {{ completingId === trip.id ? 'Đang xử lý...' : 'Hoàn thành chuyến' }}
+            </button>
+
           </div>
         </div>
       </div>
@@ -362,7 +373,7 @@ const mainView = ref('trips')
 // ── My trips ──
 const myTrips      = ref([])
 const loadingTrips = ref(false)
-
+const completingId = ref(null)   // ID chuyến đang hoàn thành
 // ── Manifest ──
 const manifestModal   = ref(false)
 const selectedTrip    = ref(null)
@@ -403,10 +414,29 @@ async function loadMyTrips() {
   try {
     const res = await api.get('/admin/driver-trips', { params: { driverId: auth.user.id } })
     myTrips.value = res.data
-  } catch {
+  } catch (e){
+    console.error(e)
     myTrips.value = []
   } finally {
     loadingTrips.value = false
+  }
+}
+
+// ── Hoàn thành chuyến ──
+async function completeTrip(trip) {
+  if (!confirm(`Xác nhận chuyến ${trip.origin} → ${trip.destination} đã hoàn thành?`)) return
+
+  completingId.value = trip.id
+  try {
+    await api.put(`/driver/trips/${trip.id}/complete`, {
+      driverId: auth.user.id
+    })
+    alert('✅ Đã xác nhận hoàn thành chuyến!')
+    await loadMyTrips()   // refresh
+  } catch (e) {
+    alert(e.response?.data?.error || 'Lỗi khi hoàn thành chuyến. Vui lòng thử lại.')
+  } finally {
+    completingId.value = null
   }
 }
 
@@ -957,4 +987,25 @@ tbody td { padding: 0.8rem 1rem; font-size: 0.875rem; vertical-align: middle; }
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
+.btn-complete-trip {
+  background: #2d7a4f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.4rem;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-complete-trip:hover:not(:disabled) {
+  background: #1f5a3a;
+  transform: translateY(-1px);
+}
+.btn-complete-trip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 </style>

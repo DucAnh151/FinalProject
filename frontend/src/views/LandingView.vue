@@ -130,6 +130,63 @@
           </article>
         </div>
       </section>
+
+      <section id="reviews" class="section">
+        <div class="section-head reveal">
+          <p>{{ t.reviewsEyebrow }}</p>
+          <h2>{{ t.reviewsTitle }}</h2>
+        </div>
+
+        <div v-if="!reviews.length" class="reviews-empty reveal">
+          {{ t.reviewsEmpty }}
+        </div>
+
+        <div v-else class="reviews-grid">
+          <article
+            v-for="review in reviews"
+            :key="review.id"
+            class="review-card reveal"
+          >
+            <!-- Stars -->
+            <div class="review-stars">
+              <span
+                v-for="n in 5"
+                :key="n"
+                :class="['star', { filled: n <= review.rating }]"
+              >★</span>
+            </div>
+
+            <!-- Comment -->
+            <p class="review-comment">{{ review.comment || '—' }}</p>
+
+            <!-- Route -->
+            <div class="review-route">
+              🚌 {{ review.origin }} → {{ review.destination }}
+            </div>
+
+            <!-- User -->
+            <div class="review-user">
+              <div class="review-avatar">
+                <img
+                  v-if="review.avatarUrl"
+                  :src="review.avatarUrl"
+                  :alt="review.userName"
+                />
+                <span v-else class="avatar-initial">
+                  {{ review.userName[0].toUpperCase() }}
+                </span>
+              </div>
+              <div>
+                <div class="review-name">
+                  {{ review.userName }}
+                  <span v-if="review.isVip" class="vip-tag">VIP</span>
+                </div>
+                <div class="review-date">{{ formatReviewDate(review.createdAt) }}</div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
     </main>
 
     <PublicFooter :dark="darkMode" :locale="locale" />
@@ -150,7 +207,6 @@ const router = useRouter()
 const auth = useAuthStore()
 const ui = useUiStore()
 
-// Delegate locale/darkMode to uiStore
 const locale = computed(() => ui.locale)
 const darkMode = computed(() => ui.isDark)
 const t = computed(() => ui.t.landing)
@@ -159,6 +215,7 @@ const provinces = ref([])
 const popularRoutes = ref([])
 const operators = ref([])
 const banners = ref([])
+const reviews = ref([])
 const stats = ref({ trips: 1000, operators: 50, customers: 12000, rating: 4.8 })
 const displayed = ref({ trips: 0, operators: 0, customers: 0, rating: 0 })
 const loading = ref(false)
@@ -207,20 +264,23 @@ async function loadProvinces() {
 
 async function loadLandingData() {
   try {
-    const [routesRes, operatorsRes, statsRes, bannersRes] = await Promise.all([
+    const [routesRes, operatorsRes, statsRes, bannersRes, reviewsRes] = await Promise.all([
       api.get('/landing/popular-routes'),
       api.get('/landing/operators'),
       api.get('/landing/stats'),
       api.get('/landing/banners'),
+      api.get('/reviews/recent?limit=8'),
     ])
     popularRoutes.value = routesRes.data
     operators.value = operatorsRes.data
     banners.value = bannersRes.data
     stats.value = statsRes.data
+    reviews.value = reviewsRes.data
   } catch {
     popularRoutes.value = fallbackRoutes()
     operators.value = fallbackOperators()
     banners.value = fallbackBanners()
+    reviews.value = []
   }
 }
 
@@ -315,6 +375,14 @@ function formatMetric(item) {
 
 function formatPrice(value) {
   return Number(value || 0).toLocaleString('vi-VN')
+}
+
+function formatReviewDate(dt) {
+  if (!dt) return ''
+  return new Date(dt).toLocaleDateString(
+    locale.value === 'vi' ? 'vi-VN' : 'en-US',
+    { day: '2-digit', month: '2-digit', year: 'numeric' }
+  )
 }
 
 function fallbackRoutes() {
@@ -774,4 +842,113 @@ h1 {
     font-size: 28px;
   }
 }
+
+/* ── REVIEWS ── */
+.reviews-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.review-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.review-stars {
+  display: flex;
+  gap: 2px;
+  font-size: 1.1rem;
+}
+.star { color: var(--line); }
+.star.filled { color: #f0a500; }
+
+.review-comment {
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.55;
+  flex: 1;
+}
+
+.review-route {
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: var(--tag-bg, #ede9e1);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  width: fit-content;
+}
+
+.review-user {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  margin-top: auto;
+}
+
+.review-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #e85d2f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.review-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar-initial {
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.review-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.vip-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+}
+
+.review-date {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .reviews-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 </style>

@@ -75,6 +75,10 @@ const vi = {
     trustOperators:     'nhà xe',
     trustRating:        'đánh giá',
     trustSupport:       'hỗ trợ',
+
+    reviewsEyebrow:   'Hành khách nói gì',
+    reviewsTitle:     'Đánh giá từ khách hàng',
+    reviewsEmpty:     'Chưa có đánh giá nào.',
   },
 
   // Home
@@ -560,7 +564,11 @@ const en = {
     trustOperators: 'operators',
     trustRating:    'rating',
     trustSupport:   'support',
-  },
+
+    reviewsEyebrow:   'What passengers say',
+    reviewsTitle:     'Customer reviews',
+    reviewsEmpty:     'No reviews yet.',
+},
 
   home: {
     title:        'FIND A BUS',

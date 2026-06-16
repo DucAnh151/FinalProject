@@ -52,4 +52,43 @@ router.post('/', async (req, res) => {
   }
 });
 
+// GET /api/reviews/recent?limit=10
+router.get('/recent', async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 10, 20)
+  try {
+    const reviews = await prisma.reviews.findMany({
+      orderBy: { created_at: 'desc' },
+      take: limit,
+      include: {
+        users: { select: { full_name: true, avatar_url: true, loyalty_tier: true } },
+        trips: {
+          include: {
+            routes: {
+              include: {
+                provinces_routes_origin_province_idToprovinces: true,
+                provinces_routes_destination_province_idToprovinces: true,
+              }
+            }
+          }
+        }
+      }
+    })
+
+    res.json(reviews.map(r => ({
+      id:           Number(r.id),
+      rating:       r.rating,
+      comment:      r.comment,
+      createdAt:    r.created_at,
+      userName:     r.users?.full_name || 'Hành khách',
+      avatarUrl:    r.users?.avatar_url || null,
+      isVip:        r.users?.loyalty_tier === 'VIP_CUSTOMER',
+      origin:       r.trips.routes.provinces_routes_origin_province_idToprovinces.name,
+      destination:  r.trips.routes.provinces_routes_destination_province_idToprovinces.name,
+    })))
+  } catch (e) {
+    console.error('Recent reviews error:', e)
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
 module.exports = router;

@@ -152,8 +152,8 @@
           </div>
 
           <!-- Nút hành động cho vé -->
-          <div v-if="selectedBooking.status === 'CONFIRMED' || selectedBooking.status === 'PENDING' || selectedBooking.status === 'CASH_PENDING'" class="action-section">
-            <!-- PENDING: Thanh toán ngay / Hủy đơn -->
+          <div v-if="['CONFIRMED','PENDING','CASH_PENDING','COMPLETED'].includes(selectedBooking.status)" class="action-section">
+            <!-- 1. PENDING: Thanh toán ngay / Hủy đơn -->
             <div v-if="selectedBooking.status === 'PENDING'" class="pending-actions">
               <button
                 class="btn-pay-now"
@@ -170,7 +170,7 @@
               </button>
             </div>
 
-            <!-- CASH_PENDING: Hủy đơn -->
+            <!-- 2.CASH_PENDING: Hủy đơn -->
             <div v-else-if="selectedBooking.status === 'CASH_PENDING'" class="pending-actions">
               <button
                 class="btn-cancel-pending"
@@ -181,8 +181,8 @@
               </button>
             </div>
 
-            <!-- CONFIRMED: Hủy vé & Hoàn tiền -->
-            <div v-else-if="selectedBooking.status === 'CONFIRMED'" class="confirmed-actions">
+            <!-- 3. CONFIRMED: chuyến chưa hoàn thành -> Hủy vé & Hoàn tiền -->
+            <div v-else-if="selectedBooking.status === 'CONFIRMED' && selectedBooking.tripStatus !== 'COMPLETED'" class="confirmed-actions">
               <div class="refund-note">
                 {{ ui.t.tickets.refundNote }} <strong>{{ ui.t.tickets.refundRate }}</strong> ({{ formatPrice(selectedBooking.totalAmount * 0.9) }}) {{ ui.t.tickets.refundSuffix }}
               </div>
@@ -194,7 +194,59 @@
                 {{ cancelling ? ui.t.tickets.cancelling : ui.t.tickets.cancelBtn }}
               </button>
             </div>
-            
+
+            <!-- 4. CONFIRMED: chuyến đã hoàn thành -> xác nhận hoàn thành booking -->
+            <div v-else-if="selectedBooking.status === 'CONFIRMED' && selectedBooking.tripStatus === 'COMPLETED'" class="confirmed-actions">
+              <div class="trip-done-note">
+                {{ ui.locale === 'vi' ? 'Chuyến xe đã hoàn thành. Xác nhận để đánh giá chuyến đi.' : 'This trip has finished. Confirm to leave a review.' }}
+              </div>
+              <button
+                class="btn-pay-now"
+                :disabled="completing"
+                @click="completeBooking(selectedBooking)"
+              >
+                {{ completing ? (ui.locale === 'vi' ? 'Đang xác nhận...' : 'Confirming...') : (ui.locale === 'vi' ? 'Xác nhận hoàn thành chuyến' : 'Confirm trip completed') }}
+              </button>
+              <div v-if="completeError" class="alert-error">{{ completeError }}</div>
+            </div>
+
+            <!-- 5. COMPLETED: chưa đánh giá -> form review -->
+            <div v-else-if="selectedBooking.status === 'COMPLETED' && !selectedBooking.hasReview" class="review-section">
+              <div class="review-title">{{ ui.locale === 'vi' ? 'Đánh giá chuyến đi' : 'Rate this trip' }}</div>
+              <div class="star-row">
+                <span
+                  v-for="n in 5" :key="n"
+                  class="star"
+                  :class="{ filled: n <= reviewRating }"
+                  @click="reviewRating = n"
+                >★</span>
+              </div>
+              <textarea
+                v-model="reviewComment"
+                class="review-textarea"
+                rows="3"
+                :placeholder="ui.locale === 'vi' ? 'Cảm nhận của bạn (không bắt buộc)...' : 'Your feedback (optional)...'"
+              ></textarea>
+              <div v-if="reviewError" class="alert-error">{{ reviewError }}</div>
+              <div v-if="reviewSuccess" class="toast-success-inline">{{ reviewSuccess }}</div>
+              <button
+                class="btn-pay-now"
+                :disabled="submittingReview"
+                @click="submitReview(selectedBooking)"
+              >
+                {{ submittingReview ? (ui.locale === 'vi' ? 'Đang gửi...' : 'Submitting...') : (ui.locale === 'vi' ? 'Gửi đánh giá' : 'Submit review') }}
+              </button>
+            </div>
+
+            <!-- 6. COMPLETED: đã đánh giá -->
+            <div v-else-if="selectedBooking.status === 'COMPLETED' && selectedBooking.hasReview" class="review-done-note">
+              <div class="star-row" style="cursor:default;margin-bottom:0.4rem">
+                <span v-for="n in 5" :key="n" class="star" :class="{ filled: n <= selectedBooking.review?.rating }">★</span>
+              </div>
+              <div v-if="selectedBooking.review?.comment">{{ selectedBooking.review.comment }}</div>
+              <div v-else style="font-size:0.8rem;opacity:0.8">{{ ui.locale === 'vi' ? 'Không có nhận xét' : 'No comment' }}</div>
+            </div>
+
             <div v-if="cancelError" class="alert-error">{{ cancelError }}</div>
           </div>
         </div>
@@ -221,6 +273,13 @@ const activeFilter    = ref('ALL')
 const selectedBooking = ref(null)
 const cancelling      = ref(false)
 const cancelError     = ref('')
+const completing      = ref(false)
+const completeError   = ref('')
+const reviewRating    = ref(5)
+const reviewComment   = ref('')
+const submittingReview = ref(false)
+const reviewError     = ref('')
+const reviewSuccess   = ref('')
 
 // Polling để tự động refresh khi CASH_PENDING đang mở
 let cashPollInterval = null
@@ -329,6 +388,50 @@ async function cancelBooking(booking) {
     cancelling.value = false
   }
 }
+
+async function completeBooking(booking) {
+  completeError.value = ''
+  completing.value = true
+  try {
+    const res = await api.post(`/bookings/${booking.id}/complete`, { userId: auth.user.id })
+    if (res.data.success) {
+      await loadBookings()
+      const refreshed = bookings.value.find(b => b.id === booking.id)
+      selectedBooking.value = refreshed || null
+    }
+  } catch (e) {
+    completeError.value = e.response?.data?.error || 'Confirm failed'
+  } finally {
+    completing.value = false
+  }
+}
+
+async function submitReview(booking) {
+  reviewError.value = ''
+  reviewSuccess.value = ''
+  if (!reviewRating.value) { reviewError.value = 'Vui lòng chọn số sao'; return }
+
+  submittingReview.value = true
+  try {
+    await api.post('/reviews', {
+      tripId:    booking.tripId,
+      userId:    auth.user.id,
+      bookingId: booking.id,
+      rating:    reviewRating.value,
+      comment:   reviewComment.value || null,
+    })
+    reviewSuccess.value = ui.locale === 'vi' ? 'Đã gửi đánh giá. Cảm ơn bạn!' : 'Review submitted. Thank you!'
+    reviewRating.value  = 5
+    reviewComment.value = ''
+    await loadBookings()
+    const refreshed = bookings.value.find(b => b.id === booking.id)
+    if (refreshed) selectedBooking.value = refreshed
+  } catch (e) {
+    reviewError.value = e.response?.data?.error || 'Lỗi khi gửi đánh giá'
+  } finally {
+    submittingReview.value = false
+  }
+} 
 
 // Map ticket → seat name from seatDetails
 function seatNameForTicket(ticket) {
@@ -658,6 +761,37 @@ function formatPrice(p) {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.trip-done-note {
+  background: rgba(13, 110, 253, 0.08);
+  color: #0d6efd;
+  border: 1px solid rgba(13, 110, 253, 0.25);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.82rem;
+  margin-bottom: 1rem;
+}
+.review-section { display: flex; flex-direction: column; gap: 0.75rem; }
+.review-title { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.star-row { display: flex; gap: 0.3rem; font-size: 1.6rem; cursor: pointer; }
+.star { color: var(--line); transition: color 0.15s; }
+.star.filled { color: #f0a500; }
+.review-textarea {
+  border: 1.5px solid var(--line); border-radius: 8px;
+  padding: 0.65rem 0.9rem; font-size: 0.85rem;
+  background: var(--input-bg); color: var(--text);
+  font-family: inherit; resize: vertical; outline: none;
+}
+.review-textarea:focus { border-color: var(--accent); }
+.review-done-note {
+  background: rgba(45, 122, 79, 0.1);
+  color: #2d7a4f;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  text-align: center;
+}
+.toast-success-inline { color: #2d7a4f; font-size: 0.8rem; }
 
 .refund-note {
   background: rgba(192, 57, 43, 0.1);

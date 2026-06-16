@@ -175,6 +175,7 @@ router.get('/my', async (req, res) => {
       departure:   b.trips.departure_time,
       tripStatus:  b.trips.status,
       hasReview:   b.reviews.length > 0,
+      review:      b.reviews[0] ? { rating: b.reviews[0].rating, comment: b.reviews[0].comment } : null,
       trip: {
         id:            Number(b.trip_id),
         origin:        b.trips.routes.provinces_routes_origin_province_idToprovinces.name,

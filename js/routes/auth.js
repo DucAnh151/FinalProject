@@ -41,6 +41,7 @@ router.post('/register', async (req, res) => {
         email:         email || null,
         password_hash: hash,
         role:          'CUSTOMER',
+        avatarUrl: user.avatar_url,
         is_active:     true,
       },
       select: { id: true, full_name: true, email: true, phone_number: true, role: true }
@@ -102,6 +103,7 @@ router.post('/login', async (req, res) => {
         email:    user.email,
         phone:    user.phone_number,
         role:     user.role,
+        avatarUrl: user.avatar_url,
         walletBalance: Number(user.wallet_balance || 0),
         loyaltyTier: user.loyalty_tier || 'STANDARD',
         totalTickets: user.total_tickets || 0,

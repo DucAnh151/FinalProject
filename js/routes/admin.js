@@ -98,7 +98,7 @@ router.get('/users', async (req, res) => {
     const { role } = req.query
     const users = await prisma.users.findMany({
       where: role ? { role } : undefined,
-      orderBy: { created_at: 'desc' }
+      orderBy: { id: 'asc' }
     })
 
     res.json(users.map(u => ({
@@ -664,6 +664,23 @@ router.put('/users/:id', async (req, res) => {
     })
     res.json({ id: Number(user.id), fullName: user.full_name, email: user.email, phone: user.phone_number, role: user.role, isActive: user.is_active })
   } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// PUT /api/admin/users/:id/reset-password — Admin đặt lại mật khẩu
+router.put('/users/:id/reset-password', async (req, res) => {
+  const { newPassword } = req.body
+  if (!newPassword || newPassword.length < 6)
+    return res.status(400).json({ error: 'Mật khẩu tối thiểu 6 ký tự' })
+  try {
+    const hash = await bcrypt.hash(newPassword, 10)
+    await prisma.users.update({
+      where: { id: BigInt(req.params.id) },
+      data:  { password_hash: hash },
+    })
+    res.json({ success: true, message: 'Đã cập nhật mật khẩu thành công' })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // PUT /api/admin/users/:id/role — Phân quyền

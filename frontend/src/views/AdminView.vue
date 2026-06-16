@@ -761,11 +761,12 @@
           </form>
         </div>
       </div>
-      <!-- MODAL: Thêm / Sửa User -->
-      <div v-if="showUserModal" class="modal-overlay" @click.self="showUserModal = false">
+
+      <!-- MODAL: Thêm tài khoản mới -->
+      <div v-if="showUserModal && !editingUser" class="modal-overlay" @click.self="showUserModal = false">
         <div class="modal-box" role="dialog" style="max-width:480px">
           <div class="modal-header">
-            <h2 class="modal-title">{{ editingUser ? 'Sửa tài khoản' : 'Thêm tài khoản mới' }}</h2>
+            <h2 class="modal-title">Thêm tài khoản mới</h2>
             <button class="modal-close" @click="showUserModal = false">✕</button>
           </div>
           <form @submit.prevent="submitUserForm" class="modal-form">
@@ -789,13 +790,13 @@
               </div>
             </div>
 
-            <div class="form-row" v-if="!editingUser">
+            <div class="form-row">
               <label class="form-label">Mật khẩu * (tối thiểu 6 ký tự)</label>
               <input v-model="userForm.password" type="password" class="form-input"
                 placeholder="••••••" />
             </div>
 
-            <div class="form-row" v-if="!editingUser">
+            <div class="form-row">
               <label class="form-label">Vai trò</label>
               <select v-model="userForm.role" class="form-select">
                 <option value="CUSTOMER">CUSTOMER</option>
@@ -803,20 +804,69 @@
               </select>
             </div>
 
-            <!-- Phân quyền khi đang sửa -->
-            <div class="form-row" v-if="editingUser">
-              <label class="form-label">Vai trò</label>
-              <div style="display:flex;gap:0.5rem">
-                <button type="button"
-                  :class="['chip', editingUser.role === 'CUSTOMER' ? 'active' : '']"
-                  @click="changeRole(editingUser, 'CUSTOMER')">CUSTOMER</button>
-                <button type="button"
-                  :class="['chip', editingUser.role === 'DRIVER' ? 'active' : '']"
-                  @click="changeRole(editingUser, 'DRIVER')">DRIVER</button>
+            <p v-if="userFormError" class="form-error">{{ userFormError }}</p>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-cancel" @click="showUserModal = false">Hủy</button>
+              <button type="submit" class="btn-save" :disabled="savingUser">
+                {{ savingUser ? 'Đang lưu...' : 'Tạo tài khoản' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- MODAL: Sửa tài khoản (chỉ đổi mật khẩu, còn lại readonly) -->
+      <div v-if="showUserModal && editingUser" class="modal-overlay" @click.self="showUserModal = false">
+        <div class="modal-box" role="dialog" style="max-width:480px">
+          <div class="modal-header">
+            <h2 class="modal-title">Đặt lại mật khẩu</h2>
+            <button class="modal-close" @click="showUserModal = false">✕</button>
+          </div>
+          <form @submit.prevent="submitUserForm" class="modal-form">
+
+            <!-- Thông tin readonly -->
+            <div class="form-row">
+              <label class="form-label">Họ và tên</label>
+              <input :value="editingUser.fullName" type="text" class="form-input" readonly
+                style="background:var(--tag-bg);color:var(--muted);cursor:not-allowed" />
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-col">
+                <label class="form-label">Số điện thoại</label>
+                <input :value="editingUser.phone || '—'" type="text" class="form-input" readonly
+                  style="background:var(--tag-bg);color:var(--muted);cursor:not-allowed" />
               </div>
-              <span style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">
-                Vai trò hiện tại: <strong>{{ editingUser.role }}</strong>
-              </span>
+              <div class="form-col">
+                <label class="form-label">Email</label>
+                <input :value="editingUser.email || '—'" type="text" class="form-input" readonly
+                  style="background:var(--tag-bg);color:var(--muted);cursor:not-allowed" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label class="form-label">Vai trò hiện tại</label>
+              <input :value="editingUser.role" type="text" class="form-input" readonly
+                style="background:var(--tag-bg);color:var(--muted);cursor:not-allowed" />
+            </div>
+
+            <!-- Đổi mật khẩu -->
+            <div style="border-top:1px solid var(--line);padding-top:1rem;margin-top:0.25rem">
+              <div class="form-row">
+                <label class="form-label">Mật khẩu mới
+                  <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">
+                    (để trống nếu không đổi)
+                  </span>
+                </label>
+                <input v-model="userForm.password" type="password" class="form-input"
+                  placeholder="Tối thiểu 6 ký tự" />
+              </div>
+              <div class="form-row">
+                <label class="form-label">Xác nhận mật khẩu mới</label>
+                <input v-model="userForm.confirmPassword" type="password" class="form-input"
+                  placeholder="Nhập lại mật khẩu mới" />
+              </div>
             </div>
 
             <p v-if="userFormError" class="form-error">{{ userFormError }}</p>
@@ -824,7 +874,7 @@
             <div class="modal-actions">
               <button type="button" class="btn-cancel" @click="showUserModal = false">Hủy</button>
               <button type="submit" class="btn-save" :disabled="savingUser">
-                {{ savingUser ? 'Đang lưu...' : (editingUser ? 'Cập nhật' : 'Tạo tài khoản') }}
+                {{ savingUser ? 'Đang lưu...' : 'Cập nhật mật khẩu' }}
               </button>
             </div>
           </form>
@@ -938,7 +988,7 @@ const topupFormError    = ref('')
 const topupAmount       = ref('')
 
 const userForm = ref({
-  fullName: '', phone: '', email: '', password: '', role: 'CUSTOMER'
+  fullName: '', phone: '', email: '', password: '', confirmPassword: '', role: 'CUSTOMER'
 })
 
 // ── Operator modal ──
@@ -1116,7 +1166,7 @@ function switchTab(key) {
 function openAddUser() {
   editingUser.value = null
   userFormError.value = ''
-  userForm.value = { fullName: '', phone: '', email: '', password: '', role: 'CUSTOMER' }
+  userForm.value = { fullName: '', phone: '', email: '', password: '', confirmPassword: '', role: 'CUSTOMER' }
   showUserModal.value = true
 }
 
@@ -1124,11 +1174,12 @@ function openEditUser(u) {
   editingUser.value = u
   userFormError.value = ''
   userForm.value = {
-    fullName: u.fullName || '',
-    phone:    u.phone || '',
-    email:    u.email || '',
-    password: '',
-    role:     u.role,
+    fullName:        '',
+    phone:           '',
+    email:           '',
+    password:        '',
+    confirmPassword: '',
+    role:            'CUSTOMER',
   }
   showUserModal.value = true
 }
@@ -1136,39 +1187,54 @@ function openEditUser(u) {
 async function submitUserForm() {
   userFormError.value = ''
   const f = userForm.value
-  if (!f.fullName?.trim()) { userFormError.value = 'Họ tên là bắt buộc'; return }
-  if (!editingUser.value && !f.phone && !f.email) { userFormError.value = 'Cần SĐT hoặc email'; return }
-  if (!editingUser.value && (!f.password || f.password.length < 6)) {
-    userFormError.value = 'Mật khẩu tối thiểu 6 ký tự'; return
+
+  // ── CHẾ ĐỘ SỬA: chỉ đổi mật khẩu ──
+  if (editingUser.value) {
+    if (!f.password) {
+      showUserModal.value = false
+      return
+    }
+    if (f.password.length < 6) { userFormError.value = 'Mật khẩu tối thiểu 6 ký tự'; return }
+    if (f.password !== f.confirmPassword) { userFormError.value = 'Mật khẩu xác nhận không khớp'; return }
+
+    savingUser.value = true
+    try {
+      await api.put(`/admin/users/${editingUser.value.id}/reset-password`, {
+        newPassword: f.password,
+      })
+      showUserModal.value = false
+    } catch (e) {
+      userFormError.value = e.response?.data?.error || 'Lỗi khi cập nhật mật khẩu'
+    } finally {
+      savingUser.value = false
+    }
+    return
   }
+
+  // ── CHẾ ĐỘ TẠO MỚI ──
+  if (!f.fullName?.trim()) { userFormError.value = 'Họ tên là bắt buộc'; return }
+  if (!f.phone && !f.email) { userFormError.value = 'Cần SĐT hoặc email'; return }
+  if (!f.password || f.password.length < 6) { userFormError.value = 'Mật khẩu tối thiểu 6 ký tự'; return }
+
   savingUser.value = true
   try {
-    if (editingUser.value) {
-      const res = await api.put(`/admin/users/${editingUser.value.id}`, {
-        fullName: f.fullName,
-        phone:    f.phone || null,
-        email:    f.email || null,
-      })
-      const idx = users.value.findIndex(u => u.id === editingUser.value.id)
-      if (idx !== -1) users.value[idx] = { ...users.value[idx], ...res.data }
-    } else {
-      const res = await api.post('/admin/users', {
-        fullName: f.fullName,
-        phone:    f.phone || null,
-        email:    f.email || null,
-        password: f.password,
-        role:     f.role,
-      })
-      users.value.unshift({
-        ...res.data,
-        walletBalance: 0,
-        loyaltyTier: 'STANDARD',
-        isActive: true,
-      })
-    }
+    const res = await api.post('/admin/users', {
+      fullName: f.fullName,
+      phone:    f.phone || null,
+      email:    f.email || null,
+      password: f.password,
+      role:     f.role,
+    })
+    users.value.push({
+      ...res.data,
+      walletBalance: 0,
+      loyaltyTier: 'STANDARD',
+      isActive: true,
+    })
+    users.value.sort((a, b) => a.id - b.id)
     showUserModal.value = false
   } catch (e) {
-    userFormError.value = e.response?.data?.error || 'Lỗi khi lưu tài khoản'
+    userFormError.value = e.response?.data?.error || 'Lỗi khi tạo tài khoản'
   } finally {
     savingUser.value = false
   }
@@ -1293,6 +1359,7 @@ async function loadUsers() {
       walletBalance: u.walletBalance || 0,
       loyaltyTier:   u.loyaltyTier || 'STANDARD',
     }))
+    .sort((a, b) => a.id - b.id)
   } catch { users.value = [] }
   finally { loadingUsers.value = false }
 }

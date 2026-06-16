@@ -676,7 +676,7 @@ router.put('/users/:id/role', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-// POST /api/admin/users/:id/topup — Nạp tiền hộ
+// POST /api/admin/users/:id/topup — Nạp tiền hộ, có kiểm tra VIP
 router.post('/users/:id/topup', async (req, res) => {
   const { amount } = req.body
   if (!amount || amount <= 0) return res.status(400).json({ error: 'Số tiền không hợp lệ' })
@@ -687,9 +687,24 @@ router.post('/users/:id/topup', async (req, res) => {
       const newBalance = BigInt(user.wallet_balance || 0) + BigInt(amount)
       const updated = await tx.users.update({ where: { id: user.id }, data: { wallet_balance: newBalance } })
       await tx.wallet_transactions.create({ data: { user_id: user.id, type: 'TOPUP', amount: BigInt(amount), balance_after: newBalance, description: 'Admin nạp hộ' } })
-      return updated
+
+      // ← THÊM ĐOẠN NÀY: kiểm tra VIP sau khi nạp
+      const totalTopup = await tx.wallet_transactions.aggregate({
+        where: { user_id: user.id, type: 'TOPUP' },
+        _sum: { amount: true },
+      })
+      let finalUser = updated
+      if (Number(totalTopup._sum.amount || 0) >= 10000000 && updated.loyalty_tier !== 'VIP_CUSTOMER') {
+        finalUser = await tx.users.update({
+          where: { id: user.id },
+          data: { loyalty_tier: 'VIP_CUSTOMER' },
+        })
+      }
+      // ← HẾT ĐOẠN THÊM
+
+      return finalUser
     })
-    res.json({ walletBalance: Number(result.wallet_balance) })
+    res.json({ walletBalance: Number(result.wallet_balance), loyaltyTier: result.loyalty_tier })
   } catch (e) {
     if (e.message === 'USER_NOT_FOUND') return res.status(404).json({ error: 'Không tìm thấy user' })
     res.status(500).json({ error: e.message })

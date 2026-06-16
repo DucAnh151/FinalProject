@@ -258,4 +258,38 @@ router.put('/avatar', async (req, res) => {
   }
 });
 
+// GET /api/auth/me?userId=xxx — lấy thông tin user mới nhất
+router.get('/me', async (req, res) => {
+  const { userId } = req.query
+  if (!userId) return res.status(400).json({ error: 'Thiếu userId' })
+
+  try {
+    const user = await prisma.users.findUnique({
+      where: { id: BigInt(userId) },
+      select: {
+        id: true, full_name: true, email: true, phone_number: true,
+        role: true, avatar_url: true, wallet_balance: true,
+        loyalty_tier: true, total_tickets: true, total_trips: true, payment_pin: true,
+      }
+    })
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy tài khoản' })
+
+    res.json({
+      id:            Number(user.id),
+      fullName:      user.full_name,
+      email:         user.email,
+      phone:         user.phone_number,
+      role:          user.role,
+      avatarUrl:     user.avatar_url,
+      walletBalance: Number(user.wallet_balance || 0),
+      loyaltyTier:   user.loyalty_tier || 'STANDARD',
+      totalTickets:  user.total_tickets || 0,
+      totalTrips:    user.total_trips || 0,
+      hasPin:        !!user.payment_pin,
+    })
+  } catch (e) {
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
 module.exports = router;

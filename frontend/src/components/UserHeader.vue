@@ -84,7 +84,18 @@ function closeDropdown() {
   showUserDropdown.value = false
 }
 
-onMounted(() => {
+import api from '../services/api'
+
+onMounted(async () => {
+  // Refresh số dư và thông tin user từ server
+  if (auth.isLoggedIn && auth.user?.id) {
+    try {
+      const res = await api.get(`/auth/me?userId=${auth.user.id}`)
+      auth.setUser(res.data)
+    } catch {
+      // silent fail — dùng session cũ
+    }
+  }
   window.addEventListener('click', closeDropdown)
 })
 
